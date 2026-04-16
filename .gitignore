@@ -1,0 +1,13 @@
+bin/
+dist/
+coverage/
+.env
+.DS_Store
+artifacts
+
+
+.idea
+
+
+config.local.yaml
+menu-service-linux

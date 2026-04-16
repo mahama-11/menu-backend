@@ -1,0 +1,354 @@
+basePath: /
+definitions:
+  internal_modules_auth.LoginInput:
+    properties:
+      email:
+        type: string
+      password:
+        minLength: 6
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  internal_modules_auth.RegisterInput:
+    properties:
+      email:
+        type: string
+      password:
+        minLength: 6
+        type: string
+      restaurant_name:
+        minLength: 2
+        type: string
+      role:
+        type: string
+    required:
+    - email
+    - password
+    - restaurant_name
+    type: object
+  internal_modules_user.UpdateProfileInput:
+    properties:
+      language_preference:
+        enum:
+        - en
+        - zh
+        - th
+        type: string
+      name:
+        type: string
+      restaurant_name:
+        type: string
+    type: object
+  menu-service_pkg_response.ErrorResponse:
+    properties:
+      code:
+        $ref: '#/definitions/menu-service_pkg_response.ResponseCode'
+      error:
+        type: string
+      errors:
+        items:
+          $ref: '#/definitions/menu-service_pkg_response.FieldError'
+        type: array
+      message:
+        type: string
+      request_id:
+        type: string
+      timestamp:
+        type: integer
+    type: object
+  menu-service_pkg_response.FieldError:
+    properties:
+      field:
+        type: string
+      message:
+        type: string
+      value:
+        type: string
+    type: object
+  menu-service_pkg_response.ResponseCode:
+    enum:
+    - 0
+    - 1000
+    - 1001
+    - 1002
+    - 1003
+    - 1004
+    - 1005
+    - 1006
+    - 1007
+    - 1008
+    - 2000
+    - 2001
+    - 5000
+    - 5001
+    - 5002
+    - 5003
+    type: integer
+    x-enum-varnames:
+    - CodeSuccess
+    - CodeInvalidParameter
+    - CodeUnauthorized
+    - CodeBadRequest
+    - CodeForbidden
+    - CodeNotFound
+    - CodeConflict
+    - CodeMethodNotAllowed
+    - CodeTooManyRequests
+    - CodeMissingParameter
+    - CodeBusinessError
+    - CodeExternalDependency
+    - CodeInternalError
+    - CodeDatabaseError
+    - CodeThirdPartyError
+    - CodeServiceUnavailable
+  menu-service_pkg_response.SuccessResponse:
+    properties:
+      code:
+        $ref: '#/definitions/menu-service_pkg_response.ResponseCode'
+      data: {}
+      message:
+        type: string
+      request_id:
+        type: string
+      timestamp:
+        type: integer
+    type: object
+info:
+  contact: {}
+  description: |-
+    Frontend-facing APIs for Menu AI P0 auth, session, and credits flows.
+    Product workflows stay in menu-backend while shared identity/org/wallet truth stays in v-platform-backend.
+  title: Menu Backend API
+  version: 0.1.0
+paths:
+  /api/v1/menu/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Frontend-facing login endpoint backed by platform identity.
+      parameters:
+      - description: Login request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_auth.LoginInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+      summary: Login menu user
+      tags:
+      - Auth
+  /api/v1/menu/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Frontend-facing register endpoint. Menu orchestrates platform user/org
+        creation and optional signup bonus issuance.
+      parameters:
+      - description: Register request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_auth.RegisterInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+      summary: Register menu user
+      tags:
+      - Auth
+  /api/v1/menu/auth/session:
+    get:
+      description: Resolve current authenticated user, current organization, and current
+        credits balance for frontend bootstrap.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get current session
+      tags:
+      - Auth
+  /api/v1/menu/user/activities:
+    get:
+      description: Query activity and history records for the current authenticated
+        user.
+      parameters:
+      - default: 20
+        description: Page size
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List user activities
+      tags:
+      - User
+  /api/v1/menu/user/credits:
+    get:
+      description: Query current credits balance and current plan view for the authenticated
+        user.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get credits and plan detail
+      tags:
+      - User
+  /api/v1/menu/user/profile:
+    get:
+      description: Query current user profile and current restaurant/org view for
+        frontend settings.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get user profile
+      tags:
+      - User
+    patch:
+      consumes:
+      - application/json
+      description: Update current user name, restaurant name, and language preference
+        through Menu orchestration.
+      parameters:
+      - description: Profile update request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_user.UpdateProfileInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update user profile
+      tags:
+      - User
+schemes:
+- http
+- https
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

@@ -1,0 +1,63 @@
+host: 0.0.0.0
+port: 8196
+gin_mode: debug
+log_level: info
+use_mock: false
+
+app:
+  frontend_base_url: "http://www.menuth.com"
+
+database:
+  driver: postgres
+  host: kong-database
+  port: 5432
+  user: kong
+  password: kongpassword
+  dbname: kong
+  sslmode: disable
+  max_open_conns: 25
+  max_idle_conns: 5
+  table_prefix: menu_
+  auto_migrate_enabled: true
+
+redis:
+  enabled: true
+  host: kyc-redis
+  port: 6379
+  password: ""
+  db: 1
+  pool_size: 10
+  min_idle_conns: 5
+  max_retries: 3
+  dial_timeout: 5s
+  read_timeout: 3s
+  write_timeout: 3s
+
+security:
+  jwt_secret: menu-dev-secret
+  encryption_key: menu-encryption-key-change-me
+  service_secret_key: menu-service-secret
+
+platform:
+  base_url: http://v-platform-backend-dev:8195
+  timeout: 5s
+  internal_service_secret: platform-internal-secret
+  jwt_secret: platform-dev-secret
+
+monitoring:
+  metrics:
+    enabled: true
+    port: 9092
+    path: "/metrics"
+    namespace: "menu"
+    subsystem: "service"
+    push_interval: "30s"
+    histogram_buckets: [0.1, 0.5, 1, 2, 5, 10]
+  tracing:
+    enabled: false
+    service_name: "menu-service"
+    service_version: "1.0.0"
+    environment: "development"
+    jaeger_endpoint: "http://localhost:14268/api/traces"
+    sample_rate: 1.0
+    log_spans: false

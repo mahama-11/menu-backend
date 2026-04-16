@@ -1,0 +1,26 @@
+name: menu-backend-ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  test-and-guardrails:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Guardrails
+        run: |
+          chmod +x scripts/check-guardrails.sh
+          ./scripts/check-guardrails.sh
+
+      - name: Test
+        run: go test ./...

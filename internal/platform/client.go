@@ -1,0 +1,684 @@
+package platform
+
+import (
+	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+	"time"
+
+	"menu-service/internal/config"
+)
+
+type Client struct {
+	baseURL     string
+	secret      string
+	serviceName string
+	http        *http.Client
+}
+
+func New(cfg config.PlatformConfig) *Client {
+	return &Client{
+		baseURL:     strings.TrimRight(cfg.BaseURL, "/"),
+		secret:      cfg.InternalServiceSecret,
+		serviceName: defaultString(cfg.ServiceName, "v-menu-backend"),
+		http:        &http.Client{Timeout: cfg.Timeout},
+	}
+}
+
+func (c *Client) BaseURL() string          { return c.baseURL }
+func (c *Client) InternalSecret() string   { return c.secret }
+func (c *Client) HTTPClient() *http.Client { return c.http }
+func (c *Client) ServiceName() string      { return c.serviceName }
+
+func (c *Client) InternalURL(path string) string {
+	return fmt.Sprintf("%s/internal/v1/%s", c.baseURL, strings.TrimLeft(path, "/"))
+}
+
+func (c *Client) PublicURL(path string) string {
+	return fmt.Sprintf("%s/api/v1/%s", c.baseURL, strings.TrimLeft(path, "/"))
+}
+
+func DefaultTimeout() time.Duration { return 5 * time.Second }
+
+type envelope[T any] struct {
+	Code      int    `json:"code"`
+	Message   string `json:"message"`
+	ErrorCode string `json:"error_code"`
+	ErrorHint string `json:"error_hint"`
+	RequestID string `json:"request_id"`
+	Timestamp int64  `json:"timestamp"`
+	Data      T      `json:"data"`
+	Error     string `json:"error"`
+	Errors    []struct {
+		Field   string `json:"field"`
+		Message string `json:"message"`
+		Value   string `json:"value,omitempty"`
+	} `json:"errors,omitempty"`
+}
+
+type PlatformAccessData struct {
+	UserID      string   `json:"user_id"`
+	OrgID       string   `json:"org_id"`
+	OrgRole     string   `json:"org_role"`
+	Permissions []string `json:"permissions"`
+}
+
+type AuthRegisterInput struct {
+	FullName string `json:"full_name"`
+	Email    string `json:"email"`
+	Company  string `json:"company"`
+	Password string `json:"password"`
+	Avatar   string `json:"avatar,omitempty"`
+}
+
+type AuthLoginInput struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type PlatformOrganizationLite struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Role string `json:"role"`
+}
+
+type PlatformUserProfile struct {
+	ID              string                     `json:"id"`
+	Email           string                     `json:"email"`
+	FullName        string                     `json:"full_name"`
+	AvatarURL       string                     `json:"avatar_url"`
+	Role            string                     `json:"role"`
+	OrgRole         string                     `json:"org_role"`
+	OrgID           string                     `json:"org_id"`
+	LastActiveOrgID string                     `json:"last_active_org_id"`
+	PlanID          string                     `json:"plan_id"`
+	Status          string                     `json:"status"`
+	Permissions     []string                   `json:"permissions"`
+	Orgs            []PlatformOrganizationLite `json:"orgs"`
+}
+
+type UpdateUserProfileInput struct {
+	FullName  string `json:"full_name,omitempty"`
+	AvatarURL string `json:"avatar_url,omitempty"`
+}
+
+type UpdateOrganizationProfileInput struct {
+	Name         string `json:"name,omitempty"`
+	BillingEmail string `json:"billing_email,omitempty"`
+}
+
+type PlatformAuthResult struct {
+	AccessToken string              `json:"access_token"`
+	User        PlatformUserProfile `json:"user"`
+}
+
+type ReserveInput struct {
+	ResourceType       string `json:"resource_type"`
+	BillingSubjectType string `json:"billing_subject_type"`
+	BillingSubjectID   string `json:"billing_subject_id"`
+	BillableItemCode   string `json:"billable_item_code,omitempty"`
+	Units              int64  `json:"units"`
+	ReferenceID        string `json:"reference_id,omitempty"`
+	Metadata           string `json:"metadata,omitempty"`
+}
+
+type ResourceReservation struct {
+	ID                 string     `json:"id"`
+	ResourceType       string     `json:"resource_type"`
+	BillingSubjectType string     `json:"billing_subject_type"`
+	BillingSubjectID   string     `json:"billing_subject_id"`
+	BillableItemCode   string     `json:"billable_item_code"`
+	Units              int64      `json:"units"`
+	Status             string     `json:"status"`
+	ReferenceID        string     `json:"reference_id"`
+	Metadata           string     `json:"metadata"`
+	ExpiresAt          *time.Time `json:"expires_at"`
+	CommittedAt        *time.Time `json:"committed_at"`
+	ReleasedAt         *time.Time `json:"released_at"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
+}
+
+type IngestEventInput struct {
+	EventID               string `json:"event_id"`
+	RequestID             string `json:"request_id,omitempty"`
+	TraceID               string `json:"trace_id,omitempty"`
+	SourceType            string `json:"source_type,omitempty"`
+	SourceID              string `json:"source_id,omitempty"`
+	SourceAction          string `json:"source_action,omitempty"`
+	ProductCode           string `json:"product_code"`
+	OrgID                 string `json:"org_id,omitempty"`
+	UserID                string `json:"user_id,omitempty"`
+	BillableItemCode      string `json:"billable_item_code"`
+	ChargeGroupID         string `json:"charge_group_id,omitempty"`
+	ParentEventID         string `json:"parent_event_id,omitempty"`
+	EventRole             string `json:"event_role,omitempty"`
+	BillingSubjectType    string `json:"billing_subject_type,omitempty"`
+	BillingSubjectID      string `json:"billing_subject_id,omitempty"`
+	UsageUnits            int64  `json:"usage_units,omitempty"`
+	Unit                  string `json:"unit,omitempty"`
+	Billable              *bool  `json:"billable,omitempty"`
+	BillingProfileKey     string `json:"billing_profile_key,omitempty"`
+	CurrencyContext       string `json:"currency_context,omitempty"`
+	Dimensions            string `json:"dimensions,omitempty"`
+	OccurredAt            string `json:"occurred_at,omitempty"`
+	DiscountType          string `json:"discount_type,omitempty"`
+	DiscountAmount        int64  `json:"discount_amount,omitempty"`
+	CampaignCode          string `json:"campaign_code,omitempty"`
+	RewardAmount          int64  `json:"reward_amount,omitempty"`
+	RewardAssetCode       string `json:"reward_asset_code,omitempty"`
+	RewardSubjectType     string `json:"reward_subject_type,omitempty"`
+	RewardSubjectID       string `json:"reward_subject_id,omitempty"`
+	CommissionAmount      int64  `json:"commission_amount,omitempty"`
+	CommissionType        string `json:"commission_type,omitempty"`
+	CommissionSubjectType string `json:"commission_subject_type,omitempty"`
+	CommissionSubjectID   string `json:"commission_subject_id,omitempty"`
+}
+
+type ReverseSettlementInput struct {
+	Reason   string `json:"reason,omitempty"`
+	Metadata string `json:"metadata,omitempty"`
+}
+
+type SettlementRecord struct {
+	ID                 string    `json:"id"`
+	EventID            string    `json:"event_id"`
+	RequestID          string    `json:"request_id"`
+	TraceID            string    `json:"trace_id"`
+	BillingSubjectType string    `json:"billing_subject_type"`
+	BillingSubjectID   string    `json:"billing_subject_id"`
+	ProductCode        string    `json:"product_code"`
+	BillableItemCode   string    `json:"billable_item_code"`
+	BillingProfileID   string    `json:"billing_profile_id"`
+	CommercialEntityID string    `json:"commercial_entity_id"`
+	MerchantAccountID  string    `json:"merchant_account_id"`
+	SettlementMode     string    `json:"settlement_mode"`
+	Currency           string    `json:"currency"`
+	GrossAmount        int64     `json:"gross_amount"`
+	DiscountAmount     int64     `json:"discount_amount"`
+	NetAmount          int64     `json:"net_amount"`
+	QuotaConsumed      int64     `json:"quota_consumed"`
+	CreditsConsumed    int64     `json:"credits_consumed"`
+	WalletAssetCode    string    `json:"wallet_asset_code"`
+	WalletDebited      int64     `json:"wallet_debited"`
+	BillingAmount      int64     `json:"billing_amount"`
+	RewardAmount       int64     `json:"reward_amount"`
+	CommissionAmount   int64     `json:"commission_amount"`
+	Status             string    `json:"status"`
+	Snapshot           string    `json:"snapshot"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
+}
+
+type DiscountLedger struct {
+	ID                 string    `json:"id"`
+	ProductCode        string    `json:"product_code"`
+	CampaignCode       string    `json:"campaign_code"`
+	DiscountType       string    `json:"discount_type"`
+	BillingSubjectType string    `json:"billing_subject_type"`
+	BillingSubjectID   string    `json:"billing_subject_id"`
+	Currency           string    `json:"currency"`
+	Amount             int64     `json:"amount"`
+	Status             string    `json:"status"`
+	ReferenceType      string    `json:"reference_type"`
+	ReferenceID        string    `json:"reference_id"`
+	Metadata           string    `json:"metadata"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
+}
+
+type WalletAccount struct {
+	ID                 string    `json:"id"`
+	BillingSubjectType string    `json:"billing_subject_type"`
+	BillingSubjectID   string    `json:"billing_subject_id"`
+	AssetCode          string    `json:"asset_code"`
+	AssetType          string    `json:"asset_type"`
+	Balance            int64     `json:"balance"`
+	Status             string    `json:"status"`
+	Metadata           string    `json:"metadata"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
+}
+
+type WalletLedger struct {
+	ID                 string    `json:"id"`
+	WalletAccountID    string    `json:"wallet_account_id"`
+	BillingSubjectType string    `json:"billing_subject_type"`
+	BillingSubjectID   string    `json:"billing_subject_id"`
+	AssetCode          string    `json:"asset_code"`
+	Direction          string    `json:"direction"`
+	Amount             int64     `json:"amount"`
+	Reason             string    `json:"reason"`
+	ReferenceType      string    `json:"reference_type"`
+	ReferenceID        string    `json:"reference_id"`
+	Status             string    `json:"status"`
+	Metadata           string    `json:"metadata"`
+	CreatedAt          time.Time `json:"created_at"`
+}
+
+type RewardLedger struct {
+	ID                     string    `json:"id"`
+	ProductCode            string    `json:"product_code"`
+	CampaignCode           string    `json:"campaign_code"`
+	RewardType             string    `json:"reward_type"`
+	BeneficiarySubjectType string    `json:"beneficiary_subject_type"`
+	BeneficiarySubjectID   string    `json:"beneficiary_subject_id"`
+	AssetCode              string    `json:"asset_code"`
+	Amount                 int64     `json:"amount"`
+	Status                 string    `json:"status"`
+	ReferenceType          string    `json:"reference_type"`
+	ReferenceID            string    `json:"reference_id"`
+	Metadata               string    `json:"metadata"`
+	CreatedAt              time.Time `json:"created_at"`
+	UpdatedAt              time.Time `json:"updated_at"`
+}
+
+type CreateRewardInput struct {
+	ProductCode            string `json:"product_code,omitempty"`
+	CampaignCode           string `json:"campaign_code,omitempty"`
+	RewardType             string `json:"reward_type"`
+	BeneficiarySubjectType string `json:"beneficiary_subject_type"`
+	BeneficiarySubjectID   string `json:"beneficiary_subject_id"`
+	AssetCode              string `json:"asset_code,omitempty"`
+	Amount                 int64  `json:"amount"`
+	Status                 string `json:"status,omitempty"`
+	ReferenceType          string `json:"reference_type,omitempty"`
+	ReferenceID            string `json:"reference_id,omitempty"`
+	Metadata               string `json:"metadata,omitempty"`
+}
+
+type CommissionLedger struct {
+	ID                     string    `json:"id"`
+	ProductCode            string    `json:"product_code"`
+	CommissionType         string    `json:"commission_type"`
+	BeneficiarySubjectType string    `json:"beneficiary_subject_type"`
+	BeneficiarySubjectID   string    `json:"beneficiary_subject_id"`
+	SettlementSubjectType  string    `json:"settlement_subject_type"`
+	SettlementSubjectID    string    `json:"settlement_subject_id"`
+	Currency               string    `json:"currency"`
+	Amount                 int64     `json:"amount"`
+	Status                 string    `json:"status"`
+	ReferenceType          string    `json:"reference_type"`
+	ReferenceID            string    `json:"reference_id"`
+	Metadata               string    `json:"metadata"`
+	CreatedAt              time.Time `json:"created_at"`
+	UpdatedAt              time.Time `json:"updated_at"`
+}
+
+type ResolveRouteInput struct {
+	OrganizationID    string `json:"organization_id,omitempty"`
+	BillingProfileKey string `json:"billing_profile_key,omitempty"`
+	Channel           string `json:"channel,omitempty"`
+	Currency          string `json:"currency,omitempty"`
+	Region            string `json:"region,omitempty"`
+	MerchantRouteHint string `json:"merchant_route_hint,omitempty"`
+	PaymentScene      string `json:"payment_scene,omitempty"`
+	OrderType         string `json:"order_type,omitempty"`
+}
+
+type ResolveRouteResult struct {
+	BillingProfileID    string `json:"billing_profile_id"`
+	BillingProfileCode  string `json:"billing_profile_code"`
+	CommercialEntityID  string `json:"commercial_entity_id"`
+	MerchantAccountID   string `json:"merchant_account_id"`
+	SettlementAccountID string `json:"settlement_account_id"`
+	RoutingPolicyID     string `json:"routing_policy_id"`
+	ResolutionReason    string `json:"resolution_reason"`
+	RouteSnapshot       string `json:"route_snapshot"`
+}
+
+type platformItemsResponse[T any] struct {
+	Items []T `json:"items"`
+}
+
+type platformError struct {
+	Status    int
+	Code      int
+	Message   string
+	ErrorCode string
+	ErrorHint string
+	Err       string
+	RequestID string
+}
+
+func (e *platformError) Error() string {
+	if e == nil {
+		return ""
+	}
+	if e.Err != "" {
+		return fmt.Sprintf("platform request failed: status=%d code=%d message=%s error_code=%s error=%s request_id=%s", e.Status, e.Code, e.Message, e.ErrorCode, e.Err, e.RequestID)
+	}
+	return fmt.Sprintf("platform request failed: status=%d code=%d message=%s error_code=%s request_id=%s", e.Status, e.Code, e.Message, e.ErrorCode, e.RequestID)
+}
+
+func (c *Client) GetAccessContext(userID, orgID string) (*PlatformAccessData, error) {
+	return doGet[PlatformAccessData](c, fmt.Sprintf("/access/users/%s/orgs/%s", userID, orgID))
+}
+
+func (c *Client) GetUserProfile(userID, orgID string) (*PlatformUserProfile, error) {
+	path := fmt.Sprintf("/users/%s/profile", userID)
+	if orgID != "" {
+		path = withQuery(path, map[string]string{"org_id": orgID})
+	}
+	return doGet[PlatformUserProfile](c, path)
+}
+
+func (c *Client) UpdateUserProfile(userID string, input UpdateUserProfileInput) (*PlatformUserProfile, error) {
+	return doPut[UpdateUserProfileInput, PlatformUserProfile](c, fmt.Sprintf("/users/%s/profile", userID), input)
+}
+
+func (c *Client) UpdateOrganizationProfile(orgID string, input UpdateOrganizationProfileInput) error {
+	_, err := doPut[UpdateOrganizationProfileInput, map[string]any](c, fmt.Sprintf("/orgs/%s/profile", orgID), input)
+	return err
+}
+
+func (c *Client) Register(input AuthRegisterInput) (*PlatformAuthResult, error) {
+	return doPublicPost[AuthRegisterInput, PlatformAuthResult](c, "/auth/register", input)
+}
+
+func (c *Client) Login(input AuthLoginInput) (*PlatformAuthResult, error) {
+	return doPublicPost[AuthLoginInput, PlatformAuthResult](c, "/auth/login", input)
+}
+
+func (c *Client) ReserveResources(input ReserveInput) (*ResourceReservation, error) {
+	return doPost[ReserveInput, ResourceReservation](c, "/controls/reservations", input)
+}
+
+func (c *Client) CommitReservation(reservationID string) (*ResourceReservation, error) {
+	return doPost[any, ResourceReservation](c, fmt.Sprintf("/controls/reservations/%s/commit", reservationID), nil)
+}
+
+func (c *Client) ReleaseReservation(reservationID string) (*ResourceReservation, error) {
+	return doPost[any, ResourceReservation](c, fmt.Sprintf("/controls/reservations/%s/release", reservationID), nil)
+}
+
+func (c *Client) IngestMeteringEvent(input IngestEventInput) error {
+	_, err := doPost[IngestEventInput, map[string]any](c, "/metering/events", input)
+	return err
+}
+
+func (c *Client) GetSettlement(eventID string) (*SettlementRecord, error) {
+	return doGet[SettlementRecord](c, fmt.Sprintf("/metering/settlements/%s", eventID))
+}
+
+func (c *Client) ListSettlements(subjectType, subjectID, productCode string) ([]SettlementRecord, error) {
+	path := withQuery("/metering/settlements", map[string]string{
+		"billing_subject_type": subjectType,
+		"billing_subject_id":   subjectID,
+		"product_code":         productCode,
+	})
+	out, err := doGet[platformItemsResponse[SettlementRecord]](c, path)
+	if err != nil {
+		return nil, err
+	}
+	return out.Items, nil
+}
+
+func (c *Client) ReverseSettlement(eventID string, input ReverseSettlementInput) (*SettlementRecord, error) {
+	return doPost[ReverseSettlementInput, SettlementRecord](c, fmt.Sprintf("/metering/settlements/%s/reverse", eventID), input)
+}
+
+func (c *Client) ListDiscounts(subjectType, subjectID, productCode string) ([]DiscountLedger, error) {
+	path := withQuery("/metering/discounts", map[string]string{
+		"billing_subject_type": subjectType,
+		"billing_subject_id":   subjectID,
+		"product_code":         productCode,
+	})
+	out, err := doGet[platformItemsResponse[DiscountLedger]](c, path)
+	if err != nil {
+		return nil, err
+	}
+	return out.Items, nil
+}
+
+func (c *Client) ResolveCommercialRoute(input ResolveRouteInput) (*ResolveRouteResult, error) {
+	return doPost[ResolveRouteInput, ResolveRouteResult](c, "/commercial/route/resolve", input)
+}
+
+func (c *Client) ListWalletAccounts(subjectType, subjectID string) ([]WalletAccount, error) {
+	path := withQuery("/wallet/accounts", map[string]string{
+		"billing_subject_type": subjectType,
+		"billing_subject_id":   subjectID,
+	})
+	out, err := doGet[platformItemsResponse[WalletAccount]](c, path)
+	if err != nil {
+		return nil, err
+	}
+	return out.Items, nil
+}
+
+func (c *Client) ListWalletLedger(walletAccountID string) ([]WalletLedger, error) {
+	path := withQuery("/wallet/ledger", map[string]string{
+		"wallet_account_id": walletAccountID,
+	})
+	out, err := doGet[platformItemsResponse[WalletLedger]](c, path)
+	if err != nil {
+		return nil, err
+	}
+	return out.Items, nil
+}
+
+func (c *Client) ListRewards(productCode, beneficiaryType, beneficiaryID string) ([]RewardLedger, error) {
+	path := withQuery("/incentives/rewards", map[string]string{
+		"product_code":             productCode,
+		"beneficiary_subject_type": beneficiaryType,
+		"beneficiary_subject_id":   beneficiaryID,
+	})
+	out, err := doGet[platformItemsResponse[RewardLedger]](c, path)
+	if err != nil {
+		return nil, err
+	}
+	return out.Items, nil
+}
+
+func (c *Client) CreateReward(input CreateRewardInput) (*RewardLedger, error) {
+	return doPost[CreateRewardInput, RewardLedger](c, "/incentives/rewards", input)
+}
+
+func (c *Client) ListCommissions(productCode, beneficiaryType, beneficiaryID string) ([]CommissionLedger, error) {
+	path := withQuery("/incentives/commissions", map[string]string{
+		"product_code":             productCode,
+		"beneficiary_subject_type": beneficiaryType,
+		"beneficiary_subject_id":   beneficiaryID,
+	})
+	out, err := doGet[platformItemsResponse[CommissionLedger]](c, path)
+	if err != nil {
+		return nil, err
+	}
+	return out.Items, nil
+}
+
+func doGet[T any](c *Client, path string) (*T, error) {
+	return doRequest[T](c, http.MethodGet, path, nil)
+}
+
+func doPost[Req any, Resp any](c *Client, path string, body Req) (*Resp, error) {
+	return doRequest[Resp](c, http.MethodPost, path, body)
+}
+
+func doPublicPost[Req any, Resp any](c *Client, path string, body Req) (*Resp, error) {
+	return doPublicRequest[Resp](c, http.MethodPost, path, body)
+}
+
+func doPut[Req any, Resp any](c *Client, path string, body Req) (*Resp, error) {
+	return doRequest[Resp](c, http.MethodPut, path, body)
+}
+
+func doRequest[T any](c *Client, method, path string, payload any) (*T, error) {
+	body, err := encodePayload(payload)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest(method, c.InternalURL(path), bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	for key, value := range c.buildHeaders(method, path, body) {
+		req.Header.Set(key, value)
+	}
+	if len(body) > 0 {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var out envelope[T]
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, err
+	}
+	if resp.StatusCode >= 400 || out.Code != 0 {
+		return nil, &platformError{
+			Status:    resp.StatusCode,
+			Code:      out.Code,
+			Message:   out.Message,
+			ErrorCode: out.ErrorCode,
+			ErrorHint: out.ErrorHint,
+			Err:       out.Error,
+			RequestID: out.RequestID,
+		}
+	}
+	return &out.Data, nil
+}
+
+func doPublicRequest[T any](c *Client, method, path string, payload any) (*T, error) {
+	body, err := encodePayload(payload)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest(method, c.PublicURL(path), bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+	if len(body) > 0 {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var out envelope[T]
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, err
+	}
+	if resp.StatusCode >= 400 || out.Code != 0 {
+		return nil, &platformError{
+			Status:    resp.StatusCode,
+			Code:      out.Code,
+			Message:   out.Message,
+			ErrorCode: out.ErrorCode,
+			ErrorHint: out.ErrorHint,
+			Err:       out.Error,
+			RequestID: out.RequestID,
+		}
+	}
+	return &out.Data, nil
+}
+
+func (c *Client) buildHeaders(method, path string, body []byte) map[string]string {
+	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+	signature := sign(c.secret, c.serviceName, method, path, timestamp, body)
+	return map[string]string{
+		"Accept":                    "application/json",
+		"X-Internal-Service":        c.serviceName,
+		"X-Internal-Timestamp":      timestamp,
+		"X-Internal-Signature":      signature,
+		"X-Internal-Service-Secret": c.secret,
+		"X-Request-ID":              buildRequestID(c.serviceName),
+		"X-Trace-ID":                buildRequestID("trace"),
+	}
+}
+
+func encodePayload(payload any) ([]byte, error) {
+	if payload == nil {
+		return nil, nil
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	if string(data) == "null" {
+		return nil, nil
+	}
+	return data, nil
+}
+
+func buildMessage(service, method, path, timestamp string, body []byte) string {
+	bodyHash := sha256.Sum256(body)
+	return fmt.Sprintf("%s\n%s\n%s\n%s\n%s", service, method, path, timestamp, hex.EncodeToString(bodyHash[:]))
+}
+
+func sign(secret, service, method, path, timestamp string, body []byte) string {
+	message := buildMessage(service, method, path, timestamp, body)
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write([]byte(message))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func buildRequestID(prefix string) string {
+	return fmt.Sprintf("%s-%d", prefix, time.Now().UnixNano())
+}
+
+func withQuery(path string, values map[string]string) string {
+	q := url.Values{}
+	for key, value := range values {
+		if value != "" {
+			q.Set(key, value)
+		}
+	}
+	if len(q) == 0 {
+		return path
+	}
+	return path + "?" + q.Encode()
+}
+
+func defaultString(value, fallback string) string {
+	if value == "" {
+		return fallback
+	}
+	return value
+}
+
+func IsConflict(err error) bool {
+	var platformErr *platformError
+	return errors.As(err, &platformErr) && platformErr.Status == http.StatusConflict
+}
+
+func IsNotFound(err error) bool {
+	var platformErr *platformError
+	return errors.As(err, &platformErr) && platformErr.Status == http.StatusNotFound
+}
+
+func IsUnauthorized(err error) bool {
+	var platformErr *platformError
+	return errors.As(err, &platformErr) && platformErr.Status == http.StatusUnauthorized
+}
+
+func ErrorCode(err error) string {
+	var platformErr *platformError
+	if errors.As(err, &platformErr) {
+		return platformErr.ErrorCode
+	}
+	return ""
+}
+
+func ErrorHint(err error) string {
+	var platformErr *platformError
+	if errors.As(err, &platformErr) {
+		return platformErr.ErrorHint
+	}
+	return ""
+}
