@@ -8,6 +8,7 @@ import (
 	audit "menu-service/internal/modules/audit"
 	auth "menu-service/internal/modules/auth"
 	authz "menu-service/internal/modules/authz"
+	referral "menu-service/internal/modules/referral"
 	user "menu-service/internal/modules/user"
 	"menu-service/internal/platform"
 	"menu-service/internal/repository"
@@ -56,10 +57,14 @@ func New(configFile string) (*App, error) {
 	authzService := authz.NewService(authzRepo, platformClient)
 	authService := auth.NewService(platformClient, userRepo, authzService, cfg.App)
 	userService := user.NewService(userRepo, platformClient, authService, auditService)
+	referralService := referral.NewService(platformClient, cfg.App)
 	if err := authzService.Bootstrap(); err != nil {
 		return nil, fmt.Errorf("bootstrap menu authz: %w", err)
 	}
+	if err := referralService.Bootstrap(); err != nil {
+		return nil, fmt.Errorf("bootstrap menu referral: %w", err)
+	}
 	app := &App{Config: *cfg, Platform: platformClient, DB: db, Redis: redisClient, Shutdown: shutdown}
-	app.Router = router.New(*cfg, platformClient, auth.NewHandler(authService, auditService), user.NewHandler(userService, auditService), authz.NewHandler(authzService), authzService)
+	app.Router = router.New(*cfg, platformClient, auth.NewHandler(authService, auditService), user.NewHandler(userService, auditService), authz.NewHandler(authzService), referral.NewHandler(referralService, auditService), authzService)
 	return app, nil
 }

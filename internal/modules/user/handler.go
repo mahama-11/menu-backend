@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	audit "menu-service/internal/modules/audit"
+	"menu-service/internal/telemetry"
 	"menu-service/pkg/metrics"
 	"menu-service/pkg/response"
 
@@ -32,10 +33,13 @@ func NewHandler(service *Service, auditService *audit.Service) *Handler {
 // @Failure 500 {object} response.ErrorResponse
 // @Router /api/v1/menu/user/activities [get]
 func (h *Handler) ListActivities(c *gin.Context) {
+	span := telemetry.StartGinSpan(c, "menu-service/user-handler", "menu.user.activities.list")
+	defer span.End()
 	limit := queryInt(c, "limit", 20)
 	offset := queryInt(c, "offset", 0)
 	result, err := h.service.Activities(c.GetString("userID"), c.GetString("orgID"), limit, offset)
 	if err != nil {
+		span.RecordError(err)
 		_ = c.Error(err)
 		response.JSONError(c, response.CodeInternalError, "failed to list activities")
 		return
@@ -54,8 +58,11 @@ func (h *Handler) ListActivities(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse
 // @Router /api/v1/menu/user/profile [get]
 func (h *Handler) GetProfile(c *gin.Context) {
+	span := telemetry.StartGinSpan(c, "menu-service/user-handler", "menu.user.profile.get")
+	defer span.End()
 	result, err := h.service.Profile(c.GetString("userID"), c.GetString("orgID"))
 	if err != nil {
+		span.RecordError(err)
 		_ = c.Error(err)
 		response.JSONErrorSemantic(c, response.CodeInternalError, "Failed to load profile", "PROFILE_LOAD_FAILED", "Refresh and try again. If the issue continues, contact support.")
 		return
@@ -74,10 +81,26 @@ func (h *Handler) GetProfile(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse
 // @Router /api/v1/menu/user/credits [get]
 func (h *Handler) GetCredits(c *gin.Context) {
+	span := telemetry.StartGinSpan(c, "menu-service/user-handler", "menu.user.credits.get")
+	defer span.End()
 	result, err := h.service.Credits(c.GetString("userID"), c.GetString("orgID"))
 	if err != nil {
+		span.RecordError(err)
 		_ = c.Error(err)
 		response.JSONErrorSemantic(c, response.CodeInternalError, "Failed to load credits", "CREDITS_LOAD_FAILED", "Refresh and try again.")
+		return
+	}
+	response.JSONSuccess(c, result)
+}
+
+func (h *Handler) GetWalletSummary(c *gin.Context) {
+	span := telemetry.StartGinSpan(c, "menu-service/user-handler", "menu.user.wallet_summary.get")
+	defer span.End()
+	result, err := h.service.WalletSummary(c.GetString("orgID"))
+	if err != nil {
+		span.RecordError(err)
+		_ = c.Error(err)
+		response.JSONErrorSemantic(c, response.CodeInternalError, "Failed to load wallet summary", "WALLET_SUMMARY_LOAD_FAILED", "Refresh and try again.")
 		return
 	}
 	response.JSONSuccess(c, result)
@@ -96,13 +119,17 @@ func (h *Handler) GetCredits(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse
 // @Router /api/v1/menu/user/profile [patch]
 func (h *Handler) UpdateProfile(c *gin.Context) {
+	span := telemetry.StartGinSpan(c, "menu-service/user-handler", "menu.user.profile.update")
+	defer span.End()
 	var req UpdateProfileInput
 	if err := c.ShouldBindJSON(&req); err != nil {
+		span.RecordError(err)
 		response.JSONBindError(c, err, "invalid update profile request")
 		return
 	}
 	result, err := h.service.UpdateProfile(c.GetString("userID"), c.GetString("orgID"), req)
 	if err != nil {
+		span.RecordError(err)
 		_ = c.Error(err)
 		response.JSONErrorSemantic(c, response.CodeInternalError, "Failed to update profile", "PROFILE_UPDATE_FAILED", "Check the input and try again.")
 		return

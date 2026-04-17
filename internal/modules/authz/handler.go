@@ -1,6 +1,7 @@
 package authz
 
 import (
+	"menu-service/internal/telemetry"
 	"menu-service/pkg/response"
 
 	"github.com/gin-gonic/gin"
@@ -15,10 +16,13 @@ func NewHandler(service *Service) *Handler {
 }
 
 func (h *Handler) Me(c *gin.Context) {
+	span := telemetry.StartGinSpan(c, "menu-service/authz-handler", "menu.authz.me")
+	defer span.End()
 	userID := c.GetString("userID")
 	orgID := c.GetString("orgID")
 	ctx, err := h.service.Resolve(userID, orgID)
 	if err != nil {
+		span.RecordError(err)
 		_ = c.Error(err)
 		response.JSONErrorSemantic(c, response.CodeForbidden, "Menu access is not available for the current organization", "MENU_ACCESS_DENIED", "Switch to an organization with Menu access or contact an administrator.")
 		return

@@ -26,6 +26,8 @@ type AppConfig struct {
 	FrontendBaseURL    string `mapstructure:"frontend_base_url"`
 	SignupBonusCredits int64  `mapstructure:"signup_bonus_credits"`
 	CreditsAssetCode   string `mapstructure:"credits_asset_code"`
+	RewardAssetCode    string `mapstructure:"reward_asset_code"`
+	AllowanceAssetCode string `mapstructure:"allowance_asset_code"`
 }
 
 type DatabaseConfig struct {
@@ -131,6 +133,8 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("app.frontend_base_url", "http://localhost:5173")
 	v.SetDefault("app.signup_bonus_credits", 20)
 	v.SetDefault("app.credits_asset_code", "MENU_CREDIT")
+	v.SetDefault("app.reward_asset_code", "MENU_PROMO_CREDIT")
+	v.SetDefault("app.allowance_asset_code", "MENU_MONTHLY_ALLOWANCE")
 	v.SetDefault("database.driver", "sqlite")
 	v.SetDefault("database.host", "database")
 	v.SetDefault("database.port", 5432)

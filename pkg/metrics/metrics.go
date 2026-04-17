@@ -1,96 +1,82 @@
 package metrics
 
 import (
-	"fmt"
-	"sort"
-	"strings"
+	"net/http"
+	"strconv"
 	"sync"
 	"time"
-)
 
-type httpMetric struct {
-	Count         int64
-	DurationMsSum int64
-}
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+)
 
 var (
-	mu              sync.Mutex
-	httpMetrics     = map[string]*httpMetric{}
-	businessMetrics = map[string]int64{}
+	once sync.Once
+
+	registry       *prometheus.Registry
+	httpRequests   *prometheus.CounterVec
+	httpDuration   *prometheus.HistogramVec
+	businessEvents *prometheus.CounterVec
 )
 
+func Configure(namespace, subsystem string) {
+	once.Do(func() {
+		if namespace == "" {
+			namespace = "menu"
+		}
+		if subsystem == "" {
+			subsystem = "service"
+		}
+		registry = prometheus.NewRegistry()
+		httpRequests = prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: namespace,
+				Subsystem: subsystem,
+				Name:      "http_requests_total",
+				Help:      "Total HTTP requests.",
+			},
+			[]string{"method", "path", "status"},
+		)
+		httpDuration = prometheus.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Namespace: namespace,
+				Subsystem: subsystem,
+				Name:      "http_request_duration_seconds",
+				Help:      "HTTP request duration in seconds.",
+				Buckets:   prometheus.DefBuckets,
+			},
+			[]string{"method", "path", "status"},
+		)
+		businessEvents = prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: namespace,
+				Subsystem: subsystem,
+				Name:      "business_events_total",
+				Help:      "Total business events.",
+			},
+			[]string{"name"},
+		)
+		registry.MustRegister(httpRequests, httpDuration, businessEvents)
+	})
+}
+
 func RecordHTTPRequest(method, path string, status int, duration time.Duration) {
-	key := fmt.Sprintf("%s|%s|%d", method, path, status)
-	mu.Lock()
-	defer mu.Unlock()
-	item := httpMetrics[key]
-	if item == nil {
-		item = &httpMetric{}
-		httpMetrics[key] = item
-	}
-	item.Count++
-	item.DurationMsSum += duration.Milliseconds()
+	ensureConfigured()
+	statusLabel := strconv.Itoa(status)
+	httpRequests.WithLabelValues(method, path, statusLabel).Inc()
+	httpDuration.WithLabelValues(method, path, statusLabel).Observe(duration.Seconds())
 }
 
 func IncBusinessCounter(name string) {
-	mu.Lock()
-	defer mu.Unlock()
-	businessMetrics[name]++
+	ensureConfigured()
+	businessEvents.WithLabelValues(name).Inc()
 }
 
-func RenderPrometheus(namespace, subsystem string) string {
-	prefix := namespace
-	if subsystem != "" {
-		prefix = prefix + "_" + subsystem
-	}
-	if prefix == "" {
-		prefix = "menu_service"
-	}
-
-	mu.Lock()
-	defer mu.Unlock()
-
-	var lines []string
-	lines = append(lines,
-		fmt.Sprintf("# HELP %s_http_requests_total Total HTTP requests", prefix),
-		fmt.Sprintf("# TYPE %s_http_requests_total counter", prefix),
-	)
-
-	httpKeys := make([]string, 0, len(httpMetrics))
-	for key := range httpMetrics {
-		httpKeys = append(httpKeys, key)
-	}
-	sort.Strings(httpKeys)
-	for _, key := range httpKeys {
-		parts := strings.Split(key, "|")
-		if len(parts) != 3 {
-			continue
-		}
-		item := httpMetrics[key]
-		lines = append(lines,
-			fmt.Sprintf(`%s_http_requests_total{method="%s",path="%s",status="%s"} %d`, prefix, parts[0], escapeLabel(parts[1]), parts[2], item.Count),
-			fmt.Sprintf(`%s_http_request_duration_ms_sum{method="%s",path="%s",status="%s"} %d`, prefix, parts[0], escapeLabel(parts[1]), parts[2], item.DurationMsSum),
-		)
-	}
-
-	lines = append(lines,
-		fmt.Sprintf("# HELP %s_business_events_total Total business events", prefix),
-		fmt.Sprintf("# TYPE %s_business_events_total counter", prefix),
-	)
-	bizKeys := make([]string, 0, len(businessMetrics))
-	for key := range businessMetrics {
-		bizKeys = append(bizKeys, key)
-	}
-	sort.Strings(bizKeys)
-	for _, key := range bizKeys {
-		lines = append(lines, fmt.Sprintf(`%s_business_events_total{name="%s"} %d`, prefix, escapeLabel(key), businessMetrics[key]))
-	}
-
-	return strings.Join(lines, "\n") + "\n"
+func Handler() http.Handler {
+	ensureConfigured()
+	return promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
 }
 
-func escapeLabel(value string) string {
-	value = strings.ReplaceAll(value, `\`, `\\`)
-	value = strings.ReplaceAll(value, `"`, `\"`)
-	return value
+func ensureConfigured() {
+	Configure("menu", "service")
 }

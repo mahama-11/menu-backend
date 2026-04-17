@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"strconv"
 	"time"
 
 	"menu-service/pkg/metrics"
@@ -9,7 +8,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Metrics() gin.HandlerFunc {
+func Metrics(namespace, subsystem string) gin.HandlerFunc {
+	metrics.Configure(namespace, subsystem)
 	return func(c *gin.Context) {
 		start := time.Now()
 		c.Next()
@@ -18,10 +18,9 @@ func Metrics() gin.HandlerFunc {
 }
 
 func MetricsHandler(namespace, subsystem string) gin.HandlerFunc {
+	metrics.Configure(namespace, subsystem)
+	handler := metrics.Handler()
 	return func(c *gin.Context) {
-		payload := metrics.RenderPrometheus(namespace, subsystem)
-		c.Header("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
-		c.Header("Content-Length", strconv.Itoa(len(payload)))
-		c.String(200, payload)
+		handler.ServeHTTP(c.Writer, c.Request)
 	}
 }

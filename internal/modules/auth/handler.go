@@ -5,6 +5,7 @@ import (
 
 	audit "menu-service/internal/modules/audit"
 	"menu-service/internal/platform"
+	"menu-service/internal/telemetry"
 	"menu-service/pkg/metrics"
 	"menu-service/pkg/response"
 
@@ -34,13 +35,17 @@ func NewHandler(service *Service, auditService *audit.Service) *Handler {
 // @Failure 500 {object} response.ErrorResponse
 // @Router /api/v1/menu/auth/register [post]
 func (h *Handler) Register(c *gin.Context) {
+	span := telemetry.StartGinSpan(c, "menu-service/auth-handler", "menu.auth.register")
+	defer span.End()
 	var req RegisterInput
 	if err := c.ShouldBindJSON(&req); err != nil {
+		span.RecordError(err)
 		response.JSONBindError(c, err, "invalid register request")
 		return
 	}
 	result, err := h.service.Register(req)
 	if err != nil {
+		span.RecordError(err)
 		_ = c.Error(err)
 		writePlatformError(c, err, "register failed")
 		return
@@ -73,13 +78,17 @@ func (h *Handler) Register(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse
 // @Router /api/v1/menu/auth/login [post]
 func (h *Handler) Login(c *gin.Context) {
+	span := telemetry.StartGinSpan(c, "menu-service/auth-handler", "menu.auth.login")
+	defer span.End()
 	var req LoginInput
 	if err := c.ShouldBindJSON(&req); err != nil {
+		span.RecordError(err)
 		response.JSONBindError(c, err, "invalid login request")
 		return
 	}
 	result, err := h.service.Login(req)
 	if err != nil {
+		span.RecordError(err)
 		_ = c.Error(err)
 		writePlatformError(c, err, "login failed")
 		return
@@ -110,8 +119,11 @@ func (h *Handler) Login(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse
 // @Router /api/v1/menu/auth/session [get]
 func (h *Handler) Session(c *gin.Context) {
+	span := telemetry.StartGinSpan(c, "menu-service/auth-handler", "menu.auth.session")
+	defer span.End()
 	result, err := h.service.Session(c.GetString("userID"), c.GetString("orgID"))
 	if err != nil {
+		span.RecordError(err)
 		_ = c.Error(err)
 		writePlatformError(c, err, "load session failed")
 		return

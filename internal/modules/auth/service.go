@@ -21,6 +21,7 @@ type RegisterInput struct {
 	Password       string `json:"password" binding:"required,min=6"`
 	RestaurantName string `json:"restaurant_name" binding:"required,min=2"`
 	Role           string `json:"role"`
+	ReferralCode   string `json:"referral_code,omitempty"`
 }
 
 type LoginInput struct {
@@ -43,16 +44,30 @@ type UserSummary struct {
 }
 
 type CreditsSummary struct {
-	AssetCode     string     `json:"asset_code"`
-	Balance       int64      `json:"balance"`
-	Rewarded      int64      `json:"rewarded"`
-	RewardGranted bool       `json:"reward_granted"`
-	RewardError   string     `json:"reward_error,omitempty"`
-	MaxCredits    *int64     `json:"max_credits"`
-	PlanName      string     `json:"plan_name"`
-	PlanTier      string     `json:"plan_tier"`
-	ResetDate     *time.Time `json:"reset_date"`
-	BillingModel  string     `json:"billing_model"`
+	AssetCode        string     `json:"asset_code"`
+	Balance          int64      `json:"balance"`
+	PermanentBalance int64      `json:"permanent_balance"`
+	RewardBalance    int64      `json:"reward_balance"`
+	AllowanceBalance int64      `json:"allowance_balance"`
+	Rewarded         int64      `json:"rewarded"`
+	RewardGranted    bool       `json:"reward_granted"`
+	RewardError      string     `json:"reward_error,omitempty"`
+	MaxCredits       *int64     `json:"max_credits"`
+	PlanName         string     `json:"plan_name"`
+	PlanTier         string     `json:"plan_tier"`
+	ResetDate        *time.Time `json:"reset_date"`
+	BillingModel     string     `json:"billing_model"`
+}
+
+type WalletSummary struct {
+	BillingSubjectType string                        `json:"billing_subject_type"`
+	BillingSubjectID   string                        `json:"billing_subject_id"`
+	ProductCode        string                        `json:"product_code"`
+	TotalBalance       int64                         `json:"total_balance"`
+	PermanentBalance   int64                         `json:"permanent_balance"`
+	RewardBalance      int64                         `json:"reward_balance"`
+	AllowanceBalance   int64                         `json:"allowance_balance"`
+	Assets             []platform.WalletAssetSummary `json:"assets"`
 }
 
 type AuthResult struct {
@@ -133,6 +148,32 @@ func (s *Service) Register(input RegisterInput) (*AuthResult, error) {
 		}
 	}
 
+	if input.ReferralCode != "" {
+		if referralErr := s.createSignupReferralConversion(authResult.User, input); referralErr != nil {
+			if s.repo != nil {
+				_ = s.repo.CreateActivity(&models.Activity{
+					UserID:         authResult.User.ID,
+					OrganizationID: authResult.User.OrgID,
+					ActionType:     "referral_signup_tracking",
+					ActionName:     "Referral Signup Tracking",
+					Status:         "failed",
+					CreditsUsed:    0,
+					ErrorMessage:   referralErr.Error(),
+				})
+			}
+		} else if s.repo != nil {
+			_ = s.repo.CreateActivity(&models.Activity{
+				UserID:         authResult.User.ID,
+				OrganizationID: authResult.User.OrgID,
+				ActionType:     "referral_signup_tracking",
+				ActionName:     "Referral Signup Tracking",
+				Status:         "succeeded",
+				CreditsUsed:    0,
+				EventID:        input.ReferralCode,
+			})
+		}
+	}
+
 	result.Credits.Balance = s.lookupCreditsBalance(authResult.User.OrgID)
 	result.Access = s.buildBestEffortAccessSummary(authResult.User.ID, authResult.User.OrgID)
 	return result, nil
@@ -185,16 +226,11 @@ func (s *Service) Credits(userID, orgID string) (*CreditsSummary, error) {
 }
 
 func (s *Service) lookupCreditsBalance(orgID string) int64 {
-	accounts, err := s.platform.ListWalletAccounts("organization", orgID)
+	summary, err := s.platform.GetWalletSummary("organization", orgID, "menu")
 	if err != nil {
 		return 0
 	}
-	for _, account := range accounts {
-		if account.AssetCode == s.appCfg.CreditsAssetCode {
-			return account.Balance
-		}
-	}
-	return 0
+	return summary.TotalBalance
 }
 
 func (s *Service) buildUserSummary(user platform.PlatformUserProfile, restaurantName, selectedRole string) UserSummary {
@@ -215,15 +251,43 @@ func (s *Service) buildUserSummary(user platform.PlatformUserProfile, restaurant
 
 func (s *Service) buildCreditsSummary(orgID, planID string) CreditsSummary {
 	planName, planTier := normalizePlan(planID)
-	return CreditsSummary{
-		AssetCode:    s.appCfg.CreditsAssetCode,
-		Balance:      s.lookupCreditsBalance(orgID),
-		MaxCredits:   nil,
-		PlanName:     planName,
-		PlanTier:     planTier,
-		ResetDate:    nil,
-		BillingModel: "wallet_bonus",
+	walletSummary, _ := s.platform.GetWalletSummary("organization", orgID, "menu")
+	var totalBalance, permanentBalance, rewardBalance, allowanceBalance int64
+	if walletSummary != nil {
+		totalBalance = walletSummary.TotalBalance
+		permanentBalance = walletSummary.PermanentBalance
+		rewardBalance = walletSummary.RewardBalance
+		allowanceBalance = walletSummary.AllowanceBalance
 	}
+	return CreditsSummary{
+		AssetCode:        s.appCfg.CreditsAssetCode,
+		Balance:          totalBalance,
+		PermanentBalance: permanentBalance,
+		RewardBalance:    rewardBalance,
+		AllowanceBalance: allowanceBalance,
+		MaxCredits:       nil,
+		PlanName:         planName,
+		PlanTier:         planTier,
+		ResetDate:        nil,
+		BillingModel:     "wallet_bonus",
+	}
+}
+
+func (s *Service) WalletSummary(orgID string) (*WalletSummary, error) {
+	item, err := s.platform.GetWalletSummary("organization", orgID, "menu")
+	if err != nil {
+		return nil, err
+	}
+	return &WalletSummary{
+		BillingSubjectType: item.BillingSubjectType,
+		BillingSubjectID:   item.BillingSubjectID,
+		ProductCode:        item.ProductCode,
+		TotalBalance:       item.TotalBalance,
+		PermanentBalance:   item.PermanentBalance,
+		RewardBalance:      item.RewardBalance,
+		AllowanceBalance:   item.AllowanceBalance,
+		Assets:             item.Assets,
+	}, nil
 }
 
 func (s *Service) lookupLanguagePreference(userID, orgID string) string {
@@ -292,6 +356,22 @@ func containsString(items []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func (s *Service) createSignupReferralConversion(user platform.PlatformUserProfile, input RegisterInput) error {
+	_, err := s.platform.CreateReferralConversion(platform.CreateReferralConversionInput{
+		ReferralCode:          input.ReferralCode,
+		ProductCode:           "menu",
+		TriggerType:           "signup",
+		ReferredSubjectType:   "organization",
+		ReferredSubjectID:     user.OrgID,
+		SettlementSubjectType: "organization",
+		SettlementSubjectID:   user.OrgID,
+		ReferenceType:         "menu_signup",
+		ReferenceID:           user.ID,
+		Metadata:              input.Role,
+	})
+	return err
 }
 
 func currentOrgName(user platform.PlatformUserProfile) string {

@@ -26,11 +26,13 @@ func (r *AuthzRepository) SeedDefaults() error {
 		{ID: "menu.job.create", Category: "job", Name: "menu.job.create", Description: "Create AI jobs"},
 		{ID: "menu.template.manage", Category: "template", Name: "menu.template.manage", Description: "Manage templates"},
 		{ID: "menu.analytics.read", Category: "analytics", Name: "menu.analytics.read", Description: "Read analytics"},
+		{ID: "menu.referral.read", Category: "growth", Name: "menu.referral.read", Description: "Read referral and commission data"},
+		{ID: "menu.referral.manage", Category: "growth", Name: "menu.referral.manage", Description: "Manage referral codes"},
 	}
 	mapping := map[string][]string{
-		"menu.workspace_admin": {"menu.access", "menu.asset.upload", "menu.job.create", "menu.template.manage", "menu.analytics.read"},
-		"menu.editor":          {"menu.access", "menu.asset.upload", "menu.job.create"},
-		"menu.viewer":          {"menu.access", "menu.analytics.read"},
+		"menu.workspace_admin": {"menu.access", "menu.asset.upload", "menu.job.create", "menu.template.manage", "menu.analytics.read", "menu.referral.read", "menu.referral.manage"},
+		"menu.editor":          {"menu.access", "menu.asset.upload", "menu.job.create", "menu.referral.read", "menu.referral.manage"},
+		"menu.viewer":          {"menu.access", "menu.analytics.read", "menu.referral.read"},
 	}
 	for _, role := range roles {
 		if err := r.db.FirstOrCreate(&role, models.MenuRole{ID: role.ID}).Error; err != nil {

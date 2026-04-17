@@ -8,6 +8,6 @@ artifacts
 
 .idea
 
-
+data
 config.local.yaml
 menu-service-linux

@@ -130,25 +130,41 @@ func autoMigrate(db *gorm.DB) error {
 }
 
 func preAutoMigrate(db *gorm.DB, tablePrefix string) error {
-	if tablePrefix == "" {
-		return nil
-	}
 	migrator := db.Migrator()
-	renames := [][2]string{
-		{"user_preferences", tablePrefix + "user_preferences"},
-		{"activities", tablePrefix + "activities"},
-		{"audit_logs", tablePrefix + "audit_logs"},
+	if tablePrefix != "" {
+		renames := [][2]string{
+			{"user_preferences", tablePrefix + "user_preferences"},
+			{"activities", tablePrefix + "activities"},
+			{"audit_logs", tablePrefix + "audit_logs"},
+		}
+		for _, item := range renames {
+			oldName := item[0]
+			newName := item[1]
+			if !migrator.HasTable(oldName) || migrator.HasTable(newName) {
+				continue
+			}
+			if err := migrator.RenameTable(oldName, newName); err != nil {
+				return fmt.Errorf("rename table %s -> %s: %w", oldName, newName, err)
+			}
+			logger.With("from", oldName, "to", newName).Info("database.pre_auto_migrate.renamed_table")
+		}
 	}
-	for _, item := range renames {
-		oldName := item[0]
-		newName := item[1]
-		if !migrator.HasTable(oldName) || migrator.HasTable(newName) {
-			continue
+
+	auditTable := tablePrefix + "audit_logs"
+	if auditTable == "" {
+		auditTable = "audit_logs"
+	}
+	if migrator.HasTable(auditTable) && !migrator.HasColumn(auditTable, "target_type") {
+		if err := db.Exec(fmt.Sprintf(`ALTER TABLE "%s" ADD COLUMN target_type text`, auditTable)).Error; err != nil {
+			return err
 		}
-		if err := migrator.RenameTable(oldName, newName); err != nil {
-			return fmt.Errorf("rename table %s -> %s: %w", oldName, newName, err)
+		if err := db.Exec(fmt.Sprintf(`UPDATE "%s" SET target_type = 'legacy_audit' WHERE target_type IS NULL OR target_type = ''`, auditTable)).Error; err != nil {
+			return err
 		}
-		logger.With("from", oldName, "to", newName).Info("database.pre_auto_migrate.renamed_table")
+		if err := db.Exec(fmt.Sprintf(`ALTER TABLE "%s" ALTER COLUMN target_type SET NOT NULL`, auditTable)).Error; err != nil {
+			return err
+		}
+		logger.With("table", auditTable, "column", "target_type").Info("database.pre_auto_migrate.backfilled_non_null_column")
 	}
 	return nil
 }

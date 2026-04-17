@@ -67,6 +67,10 @@ func (s *Service) Credits(userID, orgID string) (*auth.CreditsSummary, error) {
 	return s.auth.Credits(userID, orgID)
 }
 
+func (s *Service) WalletSummary(orgID string) (*auth.WalletSummary, error) {
+	return s.auth.WalletSummary(orgID)
+}
+
 func (s *Service) UpdateProfile(userID, orgID string, input UpdateProfileInput) (*auth.UserSummary, error) {
 	if input.Name != "" {
 		if _, err := s.platform.UpdateUserProfile(userID, platform.UpdateUserProfileInput{FullName: input.Name}); err != nil {
