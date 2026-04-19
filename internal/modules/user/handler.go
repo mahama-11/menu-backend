@@ -106,6 +106,39 @@ func (h *Handler) GetWalletSummary(c *gin.Context) {
 	response.JSONSuccess(c, result)
 }
 
+func (h *Handler) GetWalletHistory(c *gin.Context) {
+	span := telemetry.StartGinSpan(c, "menu-service/user-handler", "menu.user.wallet_history.get")
+	defer span.End()
+	result, err := h.service.WalletHistory(c.GetString("orgID"), queryInt(c, "limit", 100))
+	if err != nil {
+		span.RecordError(err)
+		_ = c.Error(err)
+		response.JSONErrorSemantic(c, response.CodeInternalError, "Failed to load wallet history", "WALLET_HISTORY_LOAD_FAILED", "Refresh and try again.")
+		return
+	}
+	response.JSONSuccess(c, result)
+}
+
+func (h *Handler) GetAuditHistory(c *gin.Context) {
+	span := telemetry.StartGinSpan(c, "menu-service/user-handler", "menu.user.audit_history.get")
+	defer span.End()
+	result, err := h.service.AuditHistory(
+		c.GetString("userID"),
+		c.GetString("orgID"),
+		c.Query("target_type"),
+		c.Query("status"),
+		queryInt(c, "limit", 100),
+		queryInt(c, "offset", 0),
+	)
+	if err != nil {
+		span.RecordError(err)
+		_ = c.Error(err)
+		response.JSONErrorSemantic(c, response.CodeInternalError, "Failed to load audit history", "AUDIT_HISTORY_LOAD_FAILED", "Refresh and try again.")
+		return
+	}
+	response.JSONSuccess(c, result)
+}
+
 // UpdateProfile godoc
 // @Summary Update user profile
 // @Description Update current user name, restaurant name, and language preference through Menu orchestration.

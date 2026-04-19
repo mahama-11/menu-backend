@@ -18,6 +18,8 @@ definitions:
       password:
         minLength: 6
         type: string
+      referral_code:
+        type: string
       restaurant_name:
         minLength: 2
         type: string
@@ -27,6 +29,26 @@ definitions:
     - email
     - password
     - restaurant_name
+    type: object
+  internal_modules_referral.CreateCodeInput:
+    properties:
+      code:
+        type: string
+      metadata:
+        type: string
+      program_code:
+        type: string
+    required:
+    - program_code
+    type: object
+  internal_modules_referral.RedeemInput:
+    properties:
+      commission_ids:
+        items:
+          type: string
+        type: array
+      metadata:
+        type: string
     type: object
   internal_modules_user.UpdateProfileInput:
     properties:
@@ -46,6 +68,10 @@ definitions:
       code:
         $ref: '#/definitions/menu-service_pkg_response.ResponseCode'
       error:
+        type: string
+      error_code:
+        type: string
+      error_hint:
         type: string
       errors:
         items:
@@ -228,6 +254,313 @@ paths:
       summary: Get current session
       tags:
       - Auth
+  /api/v1/menu/referrals/codes/{code}/resolve:
+    get:
+      description: Resolve a referral code before signup and return reward policy
+        details for the current Menu product.
+      parameters:
+      - description: Referral code
+        in: path
+        name: code
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.SuccessResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+      summary: Resolve referral code
+      tags:
+      - Referral
+  /api/v1/menu/referrals/me/codes:
+    get:
+      description: List referral codes owned by the current organization with optional
+        program and status filters.
+      parameters:
+      - description: Program code filter
+        in: query
+        name: program_code
+        type: string
+      - description: Code status filter
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List referral codes
+      tags:
+      - Referral
+    post:
+      consumes:
+      - application/json
+      description: Create a new referral code for the current organization and selected
+        program.
+      parameters:
+      - description: Create referral code request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_referral.CreateCodeInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create referral code
+      tags:
+      - Referral
+  /api/v1/menu/referrals/me/codes/ensure:
+    post:
+      consumes:
+      - application/json
+      description: Idempotently ensure the current organization has an active referral
+        code for the selected program.
+      parameters:
+      - description: Ensure referral code request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_referral.CreateCodeInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Ensure referral code
+      tags:
+      - Referral
+  /api/v1/menu/referrals/me/commissions:
+    get:
+      description: List referral commissions for the current organization with optional
+        status filtering.
+      parameters:
+      - description: Commission status filter
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List commissions
+      tags:
+      - Referral
+  /api/v1/menu/referrals/me/commissions/redeem:
+    post:
+      consumes:
+      - application/json
+      description: Redeem earned referral commissions into the configured Menu reward
+        asset for the current organization.
+      parameters:
+      - description: Redeem commissions request
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/internal_modules_referral.RedeemInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Redeem commissions
+      tags:
+      - Referral
+  /api/v1/menu/referrals/me/conversions:
+    get:
+      description: List referral conversions for the current organization with optional
+        status filtering.
+      parameters:
+      - description: Conversion status filter
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List referral conversions
+      tags:
+      - Referral
+  /api/v1/menu/referrals/me/overview:
+    get:
+      description: Load current organization referral overview including programs,
+        codes, conversions, commissions, and aggregate commission metrics.
+      parameters:
+      - description: Conversion status filter
+        in: query
+        name: conversion_status
+        type: string
+      - description: Commission status filter
+        in: query
+        name: commission_status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get referral overview
+      tags:
+      - Referral
+  /api/v1/menu/referrals/programs:
+    get:
+      description: List active or filtered referral programs available to the current
+        Menu product.
+      parameters:
+      - default: active
+        description: Program status filter
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/menu-service_pkg_response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List referral programs
+      tags:
+      - Referral
   /api/v1/menu/user/activities:
     get:
       description: Query activity and history records for the current authenticated

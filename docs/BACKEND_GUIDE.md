@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-This guide defines the initial scope of `v-menu-backend`.
+This guide defines the current product scope and engineering baseline of `v-menu-backend`.
 
 ## 1.1 Documentation Index
 
@@ -38,9 +38,9 @@ Do not duplicate platform tables as a second source of truth.
 
 ## 4. Engineering Status
 
-- Go service skeleton initialized
-- Product API contracts not finalized
-- Current implementation intentionally stays minimal until platform-service contracts stabilize
+- Go service runtime is active as the Menu product backend rather than a placeholder skeleton
+- Frontend-facing Menu API contracts are now established around auth/session, profile, Studio, referral, wallet-history, and share-post product surfaces, while still evolving incrementally with product scope
+- Platform-service contracts are no longer treated as a blocker for Menu ownership; Menu now composes stable internal platform capabilities instead of postponing product APIs until every shared contract is perfect
 - Database and Redis initialization are now wired through the same infrastructure-style config shape used across backend services.
 - Platform integration is no longer limited to access context lookup. `internal/platform/client.go` now starts exposing commercialization-facing internal API methods for reservations, metering, settlement queries, wallet queries, incentive queries, and commercial route resolution, so Menu workflows can orchestrate platform billing truth instead of duplicating it locally.
 - Menu P0 registration is designed as an orchestration boundary, not a second source of truth: Menu accepts frontend-facing register/login requests, maps `Restaurant Name` to the platform org creation input, and lets platform own the actual user/org/wallet/reward truth. Signup bonus policy (`app.signup_bonus_credits`) stays in Menu, but reward and wallet ledgers are issued through platform APIs.
@@ -56,6 +56,11 @@ Do not duplicate platform tables as a second source of truth.
 - Menu referral APIs now cover the practical frontend flows end-to-end: unauthenticated code resolve for signup pages, authenticated ensure-code flow for current org, status-filtered conversion/commission views, and current-org overview aggregation, while platform still remains the rule and ledger executor.
 - Referral monetization for Menu now prefers in-product value retention over cash payout: Menu wraps platform commission redemption into the product credits asset so earned commissions can be consumed inside the product instead of introducing payout-first behavior too early.
 - Wallet and credit semantics are now moving from a single generic balance toward product-scoped multi-asset summaries: Menu can expose permanent balance, promotional expiring credits, and monthly allowance separately while platform remains the lifecycle executor.
+- Menu now also has an explicit product-domain backend for AI style processing rather than treating generation as a loose prompt utility: `studio` covers source/generated asset registration, style presets with multi-dimension tags, generation jobs, result variants, and variant selection so later batch processing and multi-round refinement can evolve without reworking the core domain model.
+- Studio orchestration is no longer based on startup loops or DB polling. Menu now uses a Redis-backed worker queue runtime for generation dispatch/timeout tasks, plus provider adapters and staged job state (`queued`, `dispatching`, `provider_accepted`, `running`, `completed`, `failed`, `canceled`) so long-running AI jobs are explainable and future multi-provider routing is not coupled to a single model service.
+- Studio APIs now also expose frontend-facing commercial semantics instead of hiding billing behind generic failures only: generation job detail includes a `charge` snapshot (`billable_item_code`, reservation/final settlement status, charge priority asset codes, wallet/credits/quota consumption), and create-job now translates upstream reserve failures into stable semantic `error_code` values so frontend can distinguish insufficient balance, missing commercial config, and transient upstream issues.
+- Growth and wallet productization now go beyond simple balances: Menu exposes frontend-ready referral code sharing contracts (`invite_url`, `signup_url`, `share_text`) plus a unified `wallet-history` feed that aggregates rewards, commissions, expirations, recharge-like balance adjustments, and Studio charge records so frontend can build wallet, invite, redeem, and billing-history pages without stitching platform ledgers ad hoc.
+- Retrieval and publishing are now treated as first-class product capabilities instead of leaving old outputs buried inside raw tables: Menu exposes an asset library view, a job/result history view, an audit history view, and a separate `share/posts` publishing boundary so future sharing, engagement, and share-based growth mechanics can evolve without polluting `StudioAsset` / `GenerationJob` truth.
 - Engineering baseline is now treated as non-optional infrastructure rather than future polish: Menu initializes structured JSON logging, tracing provider bootstrap, request-scoped `request_id` / `trace_id`, Prometheus-standard metrics exposure, structured access logs, handler-level OTel spans on core product APIs, and audit persistence for key mutations such as register, login, profile update, referral code creation, and referral commission redemption.
 - Database governance is now expected to follow the same baseline: Menu schema migration should be driven from `internal/storage` under `database.auto_migrate_enabled`, and all Menu-owned tables should use the configured `database.table_prefix` (default `menu_`) so cross-project shared databases stay understandable and operable over time.
 - To keep that rule enforceable rather than aspirational, CI guardrails should block new `gorm.Open(...)` usage outside `internal/storage` and block custom `TableName()` overrides inside `internal/models`. Table naming must stay centrally controlled by the Menu naming strategy and migration entrypoint.

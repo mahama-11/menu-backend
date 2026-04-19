@@ -11,6 +11,8 @@ The first Swagger / OpenAPI scope focuses on frontend P0 integration:
 - `PATCH /api/v1/menu/user/profile`
 - `GET /api/v1/menu/user/credits`
 - `GET /api/v1/menu/user/wallet-summary`
+- `GET /api/v1/menu/user/wallet-history`
+- `GET /api/v1/menu/user/audit-history`
 - `GET /api/v1/menu/user/activities`
 - `GET /api/v1/menu/referrals/programs`
 - `GET /api/v1/menu/referrals/codes/:code/resolve`
@@ -21,6 +23,9 @@ The first Swagger / OpenAPI scope focuses on frontend P0 integration:
 - `GET /api/v1/menu/referrals/me/conversions`
 - `GET /api/v1/menu/referrals/me/commissions`
 - `POST /api/v1/menu/referrals/me/commissions/redeem`
+- `GET /api/v1/menu/share/posts`
+- `POST /api/v1/menu/share/posts`
+- `GET /api/v1/menu/share/posts/:shareID`
 
 These endpoints are the recommended starting point for frontend integration.
 
@@ -61,6 +66,24 @@ docs/openapi/
 - Referral semantics now expose clearer anti-abuse outcomes through error codes such as `REFERRAL_ALREADY_CLAIMED`, `REFERRAL_SELF_INVITE_BLOCKED`, and `REFERRAL_TRIGGER_NOT_ELIGIBLE` so frontend can show business-friendly guidance instead of generic server failures.
 - Commission rewards can now stay in-product rather than moving toward payout flows: Menu exposes `POST /referrals/me/commissions/redeem` to convert earned referral commissions into the configured credits asset for the current organization.
 - Menu wallet semantics now expose multi-asset summaries for frontend adaptation: `GET /user/wallet-summary` returns product-scoped balances split across permanent balance, expiring reward credits, and cycle-reset allowance buckets.
+- Menu now also exposes a product-facing history feed for frontend wallet, growth, and billing pages: `GET /user/wallet-history` aggregates Studio charge records, reward issuance, commission earning/redeeming, recharge-like wallet adjustments, and expiration events into one chronological API so frontend does not need to stitch multiple platform ledgers on its own.
+- Menu now also exposes `GET /user/audit-history` so frontend can build an operation log and user audit center without calling admin-only tooling or direct storage queries.
 - Menu observability baseline is now aligned with platform expectations: frontend-facing core handlers emit request-correlated OTel spans, and `/metrics` is backed by the Prometheus official registry/counter/histogram pipeline instead of ad-hoc text rendering.
+- Menu studio (AI style processing) product domain APIs are now available for engineering-first rollout. These endpoints are intentionally designed around stable domain objects (style presets, generation jobs, variants) so future batch and multi-round refinement can be layered on without breaking the core contract:
+  - `GET/POST /studio/assets` (register metadata, list assets)
+  - `GET /studio/library/assets` (asset library with latest job/share context)
+  - `GET/POST /studio/styles` (list/create style presets)
+  - `GET /studio/styles/:styleID` (get a preset)
+  - `POST /studio/styles/:styleID/fork` (derive a new preset)
+  - `GET/POST /studio/jobs` (list/create generation jobs)
+  - `GET /studio/history/jobs` (job/result history for retrieval UX)
+  - `GET /studio/jobs/:jobID` (get job + variants)
+  - `POST /studio/jobs/:jobID/results` (worker-controlled result callback)
+  - `POST /studio/jobs/:jobID/cancel` (cancel generation job)
+  - `POST /studio/jobs/:jobID/select-variant` (user selects one variant)
+- Studio job execution is now queue-driven rather than DB polling: job creation enqueues Redis-backed worker tasks, provider dispatch is adapter-based, retries/timeouts are scheduled as delayed tasks, and batch jobs aggregate child jobs without coupling the frontend contract to a specific model vendor.
+- Internal execution callbacks are intentionally separated from browser APIs: worker/provider updates use `/internal/v1/menu/studio/jobs/:jobID/runtime` and `/internal/v1/menu/studio/jobs/:jobID/results`, while frontend integration guidance is documented in `docs/architecture/STUDIO_FRONTEND_INTEGRATION.md`.
 - Error handling should now prioritize semantic fields instead of guessing from generic status text alone: `error_code` is the stable machine-facing key (for example `INVALID_CREDENTIALS`, `TOKEN_EXPIRED`, `PROFILE_UPDATE_FAILED`) and `error_hint` is the user-facing recovery hint that frontend can display directly or localize.
 - Referral and commission product APIs are now exposed from Menu itself rather than requiring frontend to call platform internal incentive routes directly: use Menu routes for `referrals/programs`, `referrals/me/overview`, `referrals/me/codes`, `referrals/me/conversions`, and `referrals/me/commissions`.
+- Referral code responses are now frontend-ready rather than backend-only: `referrals/me/codes`, `referrals/me/codes/ensure`, and `referrals/me/codes` create responses include `invite_url`, `signup_url`, and `share_text`, so frontend can directly render copy/share CTA without inventing invite link rules locally.
+- Publishing/social semantics now have an explicit product boundary: use `share/posts` to create and query publishable share objects with stable `share_url`, visibility, and placeholder engagement counters (`view_count`, `like_count`, `favorite_count`) without leaking future social behavior into raw `StudioAsset` rows.

@@ -125,6 +125,7 @@ type ReserveInput struct {
 	BillingSubjectType string `json:"billing_subject_type"`
 	BillingSubjectID   string `json:"billing_subject_id"`
 	BillableItemCode   string `json:"billable_item_code,omitempty"`
+	ReservationKey     string `json:"reservation_key,omitempty"`
 	Units              int64  `json:"units"`
 	ReferenceID        string `json:"reference_id,omitempty"`
 	Metadata           string `json:"metadata,omitempty"`
@@ -136,6 +137,8 @@ type ResourceReservation struct {
 	BillingSubjectType string     `json:"billing_subject_type"`
 	BillingSubjectID   string     `json:"billing_subject_id"`
 	BillableItemCode   string     `json:"billable_item_code"`
+	ReservationKey     *string    `json:"reservation_key,omitempty"`
+	FinalizationID     *string    `json:"finalization_id,omitempty"`
 	Units              int64      `json:"units"`
 	Status             string     `json:"status"`
 	ReferenceID        string     `json:"reference_id"`
@@ -182,6 +185,18 @@ type IngestEventInput struct {
 	CommissionType        string `json:"commission_type,omitempty"`
 	CommissionSubjectType string `json:"commission_subject_type,omitempty"`
 	CommissionSubjectID   string `json:"commission_subject_id,omitempty"`
+}
+
+type FinalizeInput struct {
+	FinalizationID string `json:"finalization_id"`
+	ReservationID  string `json:"reservation_id"`
+	IngestEventInput
+}
+
+type FinalizeResult struct {
+	Reservation *ResourceReservation `json:"reservation"`
+	Event       map[string]any       `json:"event"`
+	Settlement  *SettlementRecord    `json:"settlement,omitempty"`
 }
 
 type ReverseSettlementInput struct {
@@ -586,6 +601,10 @@ func (c *Client) IngestMeteringEvent(input IngestEventInput) error {
 	return err
 }
 
+func (c *Client) FinalizeMetering(input FinalizeInput) (*FinalizeResult, error) {
+	return doPost[FinalizeInput, FinalizeResult](c, "/metering/finalizations", input)
+}
+
 func (c *Client) GetSettlement(eventID string) (*SettlementRecord, error) {
 	return doGet[SettlementRecord](c, fmt.Sprintf("/metering/settlements/%s", eventID))
 }
@@ -952,4 +971,22 @@ func ErrorHint(err error) string {
 		return platformErr.ErrorHint
 	}
 	return ""
+}
+
+// HTTPStatus exposes the upstream HTTP status code for error mapping.
+func HTTPStatus(err error) int {
+	var platformErr *platformError
+	if errors.As(err, &platformErr) {
+		return platformErr.Status
+	}
+	return 0
+}
+
+// ResponseCode exposes the upstream JSON envelope code for error mapping.
+func ResponseCode(err error) int {
+	var platformErr *platformError
+	if errors.As(err, &platformErr) {
+		return platformErr.Code
+	}
+	return 0
 }

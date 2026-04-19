@@ -21,7 +21,23 @@ import (
 	"gorm.io/gorm/schema"
 )
 
-func InitDB(cfg config.DatabaseConfig) (*gorm.DB, error) {
+func InitDB(cfg config.DatabaseConfig, ginMode string) (*gorm.DB, error) {
+	db, err := ConnectDB(cfg)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.AutoMigrateEnabled {
+		if err := validateAutoMigratePolicy(cfg, ginMode); err != nil {
+			return nil, err
+		}
+		if err := RunSchemaBootstrap(db, cfg.TablePrefix); err != nil {
+			return nil, err
+		}
+	}
+	return db, nil
+}
+
+func ConnectDB(cfg config.DatabaseConfig) (*gorm.DB, error) {
 	newLogger := gormlogger.New(
 		log.New(os.Stdout, "", log.LstdFlags),
 		gormlogger.Config{
@@ -73,16 +89,33 @@ func InitDB(cfg config.DatabaseConfig) (*gorm.DB, error) {
 	sqlDB.SetMaxIdleConns(cfg.MaxIdleConns)
 	sqlDB.SetConnMaxLifetime(5 * time.Minute)
 
-	if cfg.AutoMigrateEnabled {
-		if err := preAutoMigrate(db, cfg.TablePrefix); err != nil {
-			return nil, fmt.Errorf("pre auto migrate: %w", err)
-		}
-		if err := autoMigrate(db); err != nil {
-			return nil, fmt.Errorf("auto migrate: %w", err)
-		}
-	}
-
 	return db, nil
+}
+
+func RunSchemaBootstrap(db *gorm.DB, tablePrefix string) error {
+	if err := preAutoMigrate(db, tablePrefix); err != nil {
+		return fmt.Errorf("pre auto migrate: %w", err)
+	}
+	if err := autoMigrate(db); err != nil {
+		return fmt.Errorf("auto migrate: %w", err)
+	}
+	return nil
+}
+
+func validateAutoMigratePolicy(cfg config.DatabaseConfig, ginMode string) error {
+	if !cfg.AutoMigrateEnabled {
+		return nil
+	}
+	if strings.EqualFold(cfg.Driver, "sqlite") {
+		return nil
+	}
+	if strings.EqualFold(ginMode, "debug") {
+		return nil
+	}
+	if cfg.AllowStartupMigrate {
+		return nil
+	}
+	return fmt.Errorf("startup auto migrate blocked for driver=%s gin_mode=%s: use explicit versioned migrations or set database.allow_startup_migrate_in_non_dev=true for break-glass only", cfg.Driver, ginMode)
 }
 
 func InitRedis(cfg config.RedisConfig) (*redis.Client, error) {
@@ -117,6 +150,12 @@ func autoMigrate(db *gorm.DB) error {
 		&models.MenuSubjectRole{},
 		&models.UserPreference{},
 		&models.Activity{},
+		&models.StudioAsset{},
+		&models.StylePreset{},
+		&models.GenerationJob{},
+		&models.GenerationVariant{},
+		&models.StudioChargeIntent{},
+		&models.SharePost{},
 	}
 
 	for _, model := range modelsToMigrate {
@@ -136,6 +175,12 @@ func preAutoMigrate(db *gorm.DB, tablePrefix string) error {
 			{"user_preferences", tablePrefix + "user_preferences"},
 			{"activities", tablePrefix + "activities"},
 			{"audit_logs", tablePrefix + "audit_logs"},
+			{"studio_assets", tablePrefix + "studio_assets"},
+			{"style_presets", tablePrefix + "style_presets"},
+			{"generation_jobs", tablePrefix + "generation_jobs"},
+			{"generation_variants", tablePrefix + "generation_variants"},
+			{"studio_charge_intents", tablePrefix + "studio_charge_intents"},
+			{"share_posts", tablePrefix + "share_posts"},
 		}
 		for _, item := range renames {
 			oldName := item[0]

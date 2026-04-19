@@ -171,6 +171,477 @@
                 }
             }
         },
+        "/api/v1/menu/referrals/codes/{code}/resolve": {
+            "get": {
+                "description": "Resolve a referral code before signup and return reward policy details for the current Menu product.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Referral"
+                ],
+                "summary": "Resolve referral code",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Referral code",
+                        "name": "code",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/menu/referrals/me/codes": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "List referral codes owned by the current organization with optional program and status filters.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Referral"
+                ],
+                "summary": "List referral codes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Program code filter",
+                        "name": "program_code",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Code status filter",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a new referral code for the current organization and selected program.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Referral"
+                ],
+                "summary": "Create referral code",
+                "parameters": [
+                    {
+                        "description": "Create referral code request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_referral.CreateCodeInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/menu/referrals/me/codes/ensure": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Idempotently ensure the current organization has an active referral code for the selected program.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Referral"
+                ],
+                "summary": "Ensure referral code",
+                "parameters": [
+                    {
+                        "description": "Ensure referral code request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_referral.CreateCodeInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/menu/referrals/me/commissions": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "List referral commissions for the current organization with optional status filtering.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Referral"
+                ],
+                "summary": "List commissions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Commission status filter",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/menu/referrals/me/commissions/redeem": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Redeem earned referral commissions into the configured Menu reward asset for the current organization.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Referral"
+                ],
+                "summary": "Redeem commissions",
+                "parameters": [
+                    {
+                        "description": "Redeem commissions request",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_referral.RedeemInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/menu/referrals/me/conversions": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "List referral conversions for the current organization with optional status filtering.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Referral"
+                ],
+                "summary": "List referral conversions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Conversion status filter",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/menu/referrals/me/overview": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Load current organization referral overview including programs, codes, conversions, commissions, and aggregate commission metrics.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Referral"
+                ],
+                "summary": "Get referral overview",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Conversion status filter",
+                        "name": "conversion_status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Commission status filter",
+                        "name": "commission_status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/menu/referrals/programs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "List active or filtered referral programs available to the current Menu product.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Referral"
+                ],
+                "summary": "List referral programs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "active",
+                        "description": "Program status filter",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/menu/user/activities": {
             "get": {
                 "security": [
@@ -380,11 +851,45 @@
                     "type": "string",
                     "minLength": 6
                 },
+                "referral_code": {
+                    "type": "string"
+                },
                 "restaurant_name": {
                     "type": "string",
                     "minLength": 2
                 },
                 "role": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_referral.CreateCodeInput": {
+            "type": "object",
+            "required": [
+                "program_code"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "string"
+                },
+                "program_code": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_referral.RedeemInput": {
+            "type": "object",
+            "properties": {
+                "commission_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "metadata": {
                     "type": "string"
                 }
             }
@@ -415,6 +920,12 @@
                     "$ref": "#/definitions/menu-service_pkg_response.ResponseCode"
                 },
                 "error": {
+                    "type": "string"
+                },
+                "error_code": {
+                    "type": "string"
+                },
+                "error_hint": {
                     "type": "string"
                 },
                 "errors": {

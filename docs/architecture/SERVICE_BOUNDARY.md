@@ -33,8 +33,8 @@ If it depends on Menu AI product semantics, it belongs here.
 
 Recommended interaction model:
 
-- `v-menu-frontend` -> `v-platform-backend` for login, register, `/me`, and org switch.
-- `v-menu-frontend` -> `v-menu-backend` for menu product APIs.
-- `v-menu-backend` -> `v-platform-backend` internal APIs for membership, org context, entitlement, or permission checks when required.
+- `v-menu-frontend` -> `v-menu-backend` for Menu-owned browser-facing routes, including product auth/session bootstrap, profile/activities, Studio, wallet-history, referral, and share-post flows.
+- `v-menu-backend` -> `v-platform-backend` internal APIs for identity truth, org membership, permission/access checks, wallet summaries, reward/commission settlement, route resolution, and other shared commercialization capabilities.
+- `v-menu-frontend` should not stitch platform internal models directly for product pages; Menu owns the product contract exposed to the browser.
 
-Do not turn `v-menu-backend` into a generic proxy for browser login flows.
+Do not turn `v-menu-backend` into a blind generic proxy. Menu should own product-shaped contracts and orchestration, while platform remains the truth source for reusable shared capabilities.

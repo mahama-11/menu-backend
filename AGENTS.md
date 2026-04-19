@@ -18,7 +18,7 @@ It should host:
 ## 1.1 Current Runtime Choice
 
 - Language/runtime: Go
-- Current implementation state: minimal service skeleton only
+- Current implementation state: product backend already active with Menu-facing auth/session bootstrap, user/profile aggregation, Studio asset/job/history APIs, wallet-history aggregation, referral/redeem flows, share-post publishing boundary, Redis-backed job queue runtime, and generated OpenAPI for frontend-facing routes
 - Platform dependency direction: consume shared auth/org/RBAC/subscription primitives from `v-platform-backend`
 
 ## 2. Boundary Rules

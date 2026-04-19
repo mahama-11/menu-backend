@@ -1,7 +1,12 @@
 package referral
 
 import (
+	"encoding/json"
+	"fmt"
+	"net/url"
 	"sort"
+	"strings"
+	"time"
 
 	"menu-service/internal/config"
 	"menu-service/internal/platform"
@@ -12,9 +17,24 @@ const menuProductCode = "menu"
 
 type Service struct {
 	platform           *platform.Client
+	frontendBaseURL    string
 	creditsAssetCode   string
 	rewardAssetCode    string
 	allowanceAssetCode string
+}
+
+type ReferralCodeSummary struct {
+	ID          string         `json:"id"`
+	ProgramID   string         `json:"program_id"`
+	ProductCode string         `json:"product_code"`
+	Code        string         `json:"code"`
+	Status      string         `json:"status"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
+	InviteURL   string         `json:"invite_url,omitempty"`
+	SignupURL   string         `json:"signup_url,omitempty"`
+	ShareText   string         `json:"share_text,omitempty"`
+	CreatedAt   string         `json:"created_at"`
+	UpdatedAt   string         `json:"updated_at"`
 }
 
 var defaultAssetDefinitions = func(creditsAssetCode, rewardAssetCode, allowanceAssetCode string) []platform.CreateAssetDefinitionInput {
@@ -71,7 +91,7 @@ func defaultReferralPrograms(rewardAssetCode string) []platform.CreateReferralPr
 
 type Overview struct {
 	Programs             []platform.ReferralProgram    `json:"programs"`
-	Codes                []platform.ReferralCode       `json:"codes"`
+	Codes                []ReferralCodeSummary         `json:"codes"`
 	Conversions          []platform.ReferralConversion `json:"conversions"`
 	Commissions          []platform.CommissionLedger   `json:"commissions"`
 	TotalConversions     int                           `json:"total_conversions"`
@@ -84,6 +104,8 @@ type Overview struct {
 	ReversedCommission   int64                         `json:"reversed_commission"`
 	RedeemableCommission int64                         `json:"redeemable_commission"`
 	RedeemedCommission   int64                         `json:"redeemed_commission"`
+	RedeemTargetAssetCode string                       `json:"redeem_target_asset_code"`
+	InviteBaseURL         string                       `json:"invite_base_url,omitempty"`
 }
 
 type CreateCodeInput struct {
@@ -100,6 +122,7 @@ type RedeemInput struct {
 func NewService(platformClient *platform.Client, appCfg config.AppConfig) *Service {
 	return &Service{
 		platform:           platformClient,
+		frontendBaseURL:    strings.TrimRight(appCfg.FrontendBaseURL, "/"),
 		creditsAssetCode:   appCfg.CreditsAssetCode,
 		rewardAssetCode:    appCfg.RewardAssetCode,
 		allowanceAssetCode: appCfg.AllowanceAssetCode,
@@ -143,7 +166,7 @@ func (s *Service) ListPrograms(status string) ([]platform.ReferralProgram, error
 	return items, nil
 }
 
-func (s *Service) ListCodes(orgID, programCode, status string) ([]platform.ReferralCode, error) {
+func (s *Service) ListCodes(orgID, programCode, status string) ([]ReferralCodeSummary, error) {
 	programID, err := s.resolveProgramID(programCode)
 	if err != nil {
 		return nil, err
@@ -155,11 +178,15 @@ func (s *Service) ListCodes(orgID, programCode, status string) ([]platform.Refer
 	sort.Slice(items, func(i, j int) bool {
 		return items[i].CreatedAt.After(items[j].CreatedAt)
 	})
-	return items, nil
+	out := make([]ReferralCodeSummary, 0, len(items))
+	for _, item := range items {
+		out = append(out, s.mapReferralCode(item))
+	}
+	return out, nil
 }
 
-func (s *Service) CreateCode(orgID string, input CreateCodeInput) (*platform.ReferralCode, error) {
-	return s.platform.CreateReferralCode(platform.CreateReferralCodeInput{
+func (s *Service) CreateCode(orgID string, input CreateCodeInput) (*ReferralCodeSummary, error) {
+	item, err := s.platform.CreateReferralCode(platform.CreateReferralCodeInput{
 		ProgramCode:         input.ProgramCode,
 		Code:                input.Code,
 		PromoterSubjectType: "organization",
@@ -167,9 +194,14 @@ func (s *Service) CreateCode(orgID string, input CreateCodeInput) (*platform.Ref
 		Status:              "active",
 		Metadata:            input.Metadata,
 	})
+	if err != nil {
+		return nil, err
+	}
+	mapped := s.mapReferralCode(*item)
+	return &mapped, nil
 }
 
-func (s *Service) EnsureCode(orgID string, input CreateCodeInput) (*platform.ReferralCode, error) {
+func (s *Service) EnsureCode(orgID string, input CreateCodeInput) (*ReferralCodeSummary, error) {
 	items, err := s.ListCodes(orgID, input.ProgramCode, "active")
 	if err != nil {
 		return nil, err
@@ -224,10 +256,12 @@ func (s *Service) Overview(orgID, conversionStatus, commissionStatus string) (*O
 		return nil, err
 	}
 	out := &Overview{
-		Programs:    programs,
-		Codes:       codes,
-		Conversions: conversions,
-		Commissions: commissions,
+		Programs:              programs,
+		Codes:                 codes,
+		Conversions:           conversions,
+		Commissions:           commissions,
+		RedeemTargetAssetCode: s.rewardAssetCode,
+		InviteBaseURL:         s.frontendBaseURL,
 	}
 	for _, item := range conversions {
 		out.TotalConversions++
@@ -268,6 +302,47 @@ func (s *Service) RedeemCommissions(orgID string, input RedeemInput) (*platform.
 		CommissionIDs:          input.CommissionIDs,
 		Metadata:               input.Metadata,
 	})
+}
+
+func (s *Service) mapReferralCode(item platform.ReferralCode) ReferralCodeSummary {
+	signupURL := s.buildSignupURL(item.Code)
+	return ReferralCodeSummary{
+		ID:          item.ID,
+		ProgramID:   item.ProgramID,
+		ProductCode: item.ProductCode,
+		Code:        item.Code,
+		Status:      item.Status,
+		Metadata:    decodeStringMap(item.Metadata),
+		InviteURL:   signupURL,
+		SignupURL:   signupURL,
+		ShareText:   s.buildShareText(item.Code, signupURL),
+		CreatedAt:   item.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt:   item.UpdatedAt.UTC().Format(time.RFC3339),
+	}
+}
+
+func (s *Service) buildSignupURL(code string) string {
+	if strings.TrimSpace(code) == "" {
+		return ""
+	}
+	base := defaultString(s.frontendBaseURL, "http://localhost:5173")
+	return fmt.Sprintf("%s/signup?referral_code=%s", base, url.QueryEscape(code))
+}
+
+func (s *Service) buildShareText(code, signupURL string) string {
+	if signupURL == "" {
+		return ""
+	}
+	return fmt.Sprintf("Use my Menu invite code %s to join: %s", code, signupURL)
+}
+
+func decodeStringMap(raw string) map[string]any {
+	if strings.TrimSpace(raw) == "" {
+		return map[string]any{}
+	}
+	out := map[string]any{}
+	_ = json.Unmarshal([]byte(raw), &out)
+	return out
 }
 
 func (s *Service) bootstrapAssetDefinitions() error {

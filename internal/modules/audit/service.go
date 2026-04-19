@@ -16,6 +16,28 @@ type Service struct {
 	repo *repository.AuditRepository
 }
 
+type HistoryItem struct {
+	ID          string         `json:"id"`
+	RequestID   string         `json:"request_id,omitempty"`
+	TraceID     string         `json:"trace_id,omitempty"`
+	Action      string         `json:"action"`
+	TargetType  string         `json:"target_type"`
+	TargetID    string         `json:"target_id,omitempty"`
+	Status      string         `json:"status"`
+	Route       string         `json:"route,omitempty"`
+	Method      string         `json:"method,omitempty"`
+	Details     string         `json:"details,omitempty"`
+	DiffSummary string         `json:"diff_summary,omitempty"`
+	CreatedAt   string         `json:"created_at"`
+	Before      map[string]any `json:"before,omitempty"`
+	After       map[string]any `json:"after,omitempty"`
+}
+
+type HistoryResult struct {
+	Items []HistoryItem `json:"items"`
+	Total int64         `json:"total"`
+}
+
 type RecordInput struct {
 	Action         string
 	TargetType     string
@@ -54,6 +76,33 @@ func (s *Service) RecordFromGin(c *gin.Context, input RecordInput) error {
 	return s.repo.Create(item)
 }
 
+func (s *Service) History(actorOrgID, actorUserID, targetType, status string, limit, offset int) (*HistoryResult, error) {
+	items, total, err := s.repo.List(actorOrgID, actorUserID, targetType, status, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]HistoryItem, 0, len(items))
+	for _, item := range items {
+		out = append(out, HistoryItem{
+			ID:          item.ID,
+			RequestID:   item.RequestID,
+			TraceID:     item.TraceID,
+			Action:      item.Action,
+			TargetType:  item.TargetType,
+			TargetID:    item.TargetID,
+			Status:      item.Status,
+			Route:       item.Route,
+			Method:      item.Method,
+			Details:     item.Details,
+			DiffSummary: item.DiffSummary,
+			CreatedAt:   item.CreatedAt.UTC().Format(time.RFC3339),
+			Before:      decodeSnapshot(item.BeforeSnapshot),
+			After:       decodeSnapshot(item.AfterSnapshot),
+		})
+	}
+	return &HistoryResult{Items: out, Total: total}, nil
+}
+
 func encodeSnapshot(value any) (string, error) {
 	if value == nil {
 		return "", nil
@@ -63,6 +112,17 @@ func encodeSnapshot(value any) (string, error) {
 		return "", err
 	}
 	return string(data), nil
+}
+
+func decodeSnapshot(raw string) map[string]any {
+	if raw == "" {
+		return map[string]any{}
+	}
+	out := map[string]any{}
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		return map[string]any{}
+	}
+	return out
 }
 
 func buildDiffSummary(before, after any) string {

@@ -8,6 +8,8 @@ artifacts
 
 .idea
 
+migrate
+
 data
 config.local.yaml
 menu-service-linux

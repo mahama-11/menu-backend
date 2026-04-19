@@ -15,6 +15,7 @@ type Config struct {
 	LogLevel   string           `mapstructure:"log_level"`
 	UseMock    bool             `mapstructure:"use_mock"`
 	App        AppConfig        `mapstructure:"app"`
+	Studio     StudioConfig     `mapstructure:"studio"`
 	Database   DatabaseConfig   `mapstructure:"database"`
 	Redis      RedisConfig      `mapstructure:"redis"`
 	Security   SecurityConfig   `mapstructure:"security"`
@@ -30,19 +31,39 @@ type AppConfig struct {
 	AllowanceAssetCode string `mapstructure:"allowance_asset_code"`
 }
 
+type StudioConfig struct {
+	WorkerEnabled        bool          `mapstructure:"worker_enabled"`
+	WorkerConcurrency    int           `mapstructure:"worker_concurrency"`
+	QueueName            string        `mapstructure:"queue_name"`
+	BillingEnabled       bool          `mapstructure:"billing_enabled"`
+	ProductCode          string        `mapstructure:"product_code"`
+	ResourceType         string        `mapstructure:"resource_type"`
+	SingleBillableItem   string        `mapstructure:"single_billable_item"`
+	RefinementBillableItem string      `mapstructure:"refinement_billable_item"`
+	VariationBillableItem string       `mapstructure:"variation_billable_item"`
+	ExecutionTimeout     time.Duration `mapstructure:"execution_timeout"`
+	RetryBackoff         time.Duration `mapstructure:"retry_backoff"`
+	MaxAttempts          int           `mapstructure:"max_attempts"`
+	MaxConcurrentPerUser int           `mapstructure:"max_concurrent_per_user"`
+	MaxConcurrentPerOrg  int           `mapstructure:"max_concurrent_per_org"`
+	DefaultProvider      string        `mapstructure:"default_provider"`
+	DefaultVariantCount  int           `mapstructure:"default_variant_count"`
+}
+
 type DatabaseConfig struct {
-	Driver             string `mapstructure:"driver"`
-	Host               string `mapstructure:"host"`
-	Port               int    `mapstructure:"port"`
-	User               string `mapstructure:"user"`
-	Password           string `mapstructure:"password"`
-	DBName             string `mapstructure:"dbname"`
-	SSLMode            string `mapstructure:"sslmode"`
-	MaxOpenConns       int    `mapstructure:"max_open_conns"`
-	MaxIdleConns       int    `mapstructure:"max_idle_conns"`
-	SQLitePath         string `mapstructure:"sqlite_path"`
-	TablePrefix        string `mapstructure:"table_prefix"`
-	AutoMigrateEnabled bool   `mapstructure:"auto_migrate_enabled"`
+	Driver              string `mapstructure:"driver"`
+	Host                string `mapstructure:"host"`
+	Port                int    `mapstructure:"port"`
+	User                string `mapstructure:"user"`
+	Password            string `mapstructure:"password"`
+	DBName              string `mapstructure:"dbname"`
+	SSLMode             string `mapstructure:"sslmode"`
+	MaxOpenConns        int    `mapstructure:"max_open_conns"`
+	MaxIdleConns        int    `mapstructure:"max_idle_conns"`
+	SQLitePath          string `mapstructure:"sqlite_path"`
+	TablePrefix         string `mapstructure:"table_prefix"`
+	AutoMigrateEnabled  bool   `mapstructure:"auto_migrate_enabled"`
+	AllowStartupMigrate bool   `mapstructure:"allow_startup_migrate_in_non_dev"`
 }
 
 type RedisConfig struct {
@@ -135,6 +156,22 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("app.credits_asset_code", "MENU_CREDIT")
 	v.SetDefault("app.reward_asset_code", "MENU_PROMO_CREDIT")
 	v.SetDefault("app.allowance_asset_code", "MENU_MONTHLY_ALLOWANCE")
+	v.SetDefault("studio.worker_enabled", true)
+	v.SetDefault("studio.worker_concurrency", 8)
+	v.SetDefault("studio.queue_name", "studio:default")
+	v.SetDefault("studio.billing_enabled", true)
+	v.SetDefault("studio.product_code", "menu")
+	v.SetDefault("studio.resource_type", "credits")
+	v.SetDefault("studio.single_billable_item", "menu_studio_single_generate")
+	v.SetDefault("studio.refinement_billable_item", "menu_studio_refinement_generate")
+	v.SetDefault("studio.variation_billable_item", "menu_studio_variation_generate")
+	v.SetDefault("studio.execution_timeout", "5m")
+	v.SetDefault("studio.retry_backoff", "15s")
+	v.SetDefault("studio.max_attempts", 3)
+	v.SetDefault("studio.max_concurrent_per_user", 2)
+	v.SetDefault("studio.max_concurrent_per_org", 8)
+	v.SetDefault("studio.default_provider", "manual")
+	v.SetDefault("studio.default_variant_count", 4)
 	v.SetDefault("database.driver", "sqlite")
 	v.SetDefault("database.host", "database")
 	v.SetDefault("database.port", 5432)
@@ -146,7 +183,8 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("database.max_idle_conns", 5)
 	v.SetDefault("database.sqlite_path", "data/menu.db")
 	v.SetDefault("database.table_prefix", "menu_")
-	v.SetDefault("database.auto_migrate_enabled", true)
+	v.SetDefault("database.auto_migrate_enabled", false)
+	v.SetDefault("database.allow_startup_migrate_in_non_dev", false)
 	v.SetDefault("redis.enabled", false)
 	v.SetDefault("redis.host", "redis")
 	v.SetDefault("redis.port", 6379)

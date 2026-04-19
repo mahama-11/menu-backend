@@ -23,16 +23,23 @@ func (r *AuthzRepository) SeedDefaults() error {
 	permissions := []models.MenuPermission{
 		{ID: "menu.access", Category: "access", Name: "menu.access", Description: "Access menu product"},
 		{ID: "menu.asset.upload", Category: "asset", Name: "menu.asset.upload", Description: "Upload assets"},
+		{ID: "menu.asset.read", Category: "asset", Name: "menu.asset.read", Description: "Read assets"},
 		{ID: "menu.job.create", Category: "job", Name: "menu.job.create", Description: "Create AI jobs"},
+		{ID: "menu.job.read", Category: "job", Name: "menu.job.read", Description: "Read AI jobs"},
+		{ID: "menu.job.manage", Category: "job", Name: "menu.job.manage", Description: "Manage AI jobs and outputs"},
 		{ID: "menu.template.manage", Category: "template", Name: "menu.template.manage", Description: "Manage templates"},
+		{ID: "menu.template.read", Category: "template", Name: "menu.template.read", Description: "Read templates"},
+		{ID: "menu.share.read", Category: "share", Name: "menu.share.read", Description: "Read share posts"},
+		{ID: "menu.share.manage", Category: "share", Name: "menu.share.manage", Description: "Manage share posts"},
+		{ID: "menu.audit.read", Category: "audit", Name: "menu.audit.read", Description: "Read audit history"},
 		{ID: "menu.analytics.read", Category: "analytics", Name: "menu.analytics.read", Description: "Read analytics"},
 		{ID: "menu.referral.read", Category: "growth", Name: "menu.referral.read", Description: "Read referral and commission data"},
 		{ID: "menu.referral.manage", Category: "growth", Name: "menu.referral.manage", Description: "Manage referral codes"},
 	}
 	mapping := map[string][]string{
-		"menu.workspace_admin": {"menu.access", "menu.asset.upload", "menu.job.create", "menu.template.manage", "menu.analytics.read", "menu.referral.read", "menu.referral.manage"},
-		"menu.editor":          {"menu.access", "menu.asset.upload", "menu.job.create", "menu.referral.read", "menu.referral.manage"},
-		"menu.viewer":          {"menu.access", "menu.analytics.read", "menu.referral.read"},
+		"menu.workspace_admin": {"menu.access", "menu.asset.upload", "menu.asset.read", "menu.job.create", "menu.job.read", "menu.job.manage", "menu.template.manage", "menu.template.read", "menu.share.read", "menu.share.manage", "menu.audit.read", "menu.analytics.read", "menu.referral.read", "menu.referral.manage"},
+		"menu.editor":          {"menu.access", "menu.asset.upload", "menu.asset.read", "menu.job.create", "menu.job.read", "menu.template.read", "menu.share.read", "menu.share.manage", "menu.audit.read", "menu.referral.read", "menu.referral.manage"},
+		"menu.viewer":          {"menu.access", "menu.asset.read", "menu.job.read", "menu.template.read", "menu.share.read", "menu.audit.read", "menu.analytics.read", "menu.referral.read"},
 	}
 	for _, role := range roles {
 		if err := r.db.FirstOrCreate(&role, models.MenuRole{ID: role.ID}).Error; err != nil {

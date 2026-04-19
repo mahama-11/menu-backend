@@ -1,6 +1,8 @@
 package referral
 
 import (
+	"errors"
+	"io"
 	audit "menu-service/internal/modules/audit"
 	"menu-service/internal/platform"
 	"menu-service/internal/telemetry"
@@ -19,6 +21,17 @@ func NewHandler(service *Service, auditService *audit.Service) *Handler {
 	return &Handler{service: service, audit: auditService}
 }
 
+// ListPrograms godoc
+// @Summary List referral programs
+// @Description List active or filtered referral programs available to the current Menu product.
+// @Tags Referral
+// @Produce json
+// @Security BearerAuth
+// @Param status query string false "Program status filter" default(active)
+// @Success 200 {object} response.SuccessResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /api/v1/menu/referrals/programs [get]
 func (h *Handler) ListPrograms(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/referral-handler", "menu.referral.programs.list")
 	defer span.End()
@@ -32,6 +45,18 @@ func (h *Handler) ListPrograms(c *gin.Context) {
 	response.JSONSuccess(c, gin.H{"items": items})
 }
 
+// Overview godoc
+// @Summary Get referral overview
+// @Description Load current organization referral overview including programs, codes, conversions, commissions, and aggregate commission metrics.
+// @Tags Referral
+// @Produce json
+// @Security BearerAuth
+// @Param conversion_status query string false "Conversion status filter"
+// @Param commission_status query string false "Commission status filter"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /api/v1/menu/referrals/me/overview [get]
 func (h *Handler) Overview(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/referral-handler", "menu.referral.overview.get")
 	defer span.End()
@@ -45,6 +70,17 @@ func (h *Handler) Overview(c *gin.Context) {
 	response.JSONSuccess(c, item)
 }
 
+// ResolveCode godoc
+// @Summary Resolve referral code
+// @Description Resolve a referral code before signup and return reward policy details for the current Menu product.
+// @Tags Referral
+// @Produce json
+// @Param code path string true "Referral code"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 409 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /api/v1/menu/referrals/codes/{code}/resolve [get]
 func (h *Handler) ResolveCode(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/referral-handler", "menu.referral.code.resolve")
 	defer span.End()
@@ -58,6 +94,18 @@ func (h *Handler) ResolveCode(c *gin.Context) {
 	response.JSONSuccess(c, item)
 }
 
+// ListCodes godoc
+// @Summary List referral codes
+// @Description List referral codes owned by the current organization with optional program and status filters.
+// @Tags Referral
+// @Produce json
+// @Security BearerAuth
+// @Param program_code query string false "Program code filter"
+// @Param status query string false "Code status filter"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /api/v1/menu/referrals/me/codes [get]
 func (h *Handler) ListCodes(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/referral-handler", "menu.referral.codes.list")
 	defer span.End()
@@ -71,6 +119,20 @@ func (h *Handler) ListCodes(c *gin.Context) {
 	response.JSONSuccess(c, gin.H{"items": items})
 }
 
+// EnsureCode godoc
+// @Summary Ensure referral code
+// @Description Idempotently ensure the current organization has an active referral code for the selected program.
+// @Tags Referral
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body CreateCodeInput true "Ensure referral code request"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 409 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /api/v1/menu/referrals/me/codes/ensure [post]
 func (h *Handler) EnsureCode(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/referral-handler", "menu.referral.code.ensure")
 	defer span.End()
@@ -90,6 +152,20 @@ func (h *Handler) EnsureCode(c *gin.Context) {
 	response.JSONSuccess(c, item)
 }
 
+// CreateCode godoc
+// @Summary Create referral code
+// @Description Create a new referral code for the current organization and selected program.
+// @Tags Referral
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body CreateCodeInput true "Create referral code request"
+// @Success 201 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 409 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /api/v1/menu/referrals/me/codes [post]
 func (h *Handler) CreateCode(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/referral-handler", "menu.referral.code.create")
 	defer span.End()
@@ -120,6 +196,17 @@ func (h *Handler) CreateCode(c *gin.Context) {
 	response.JSONSuccessWithStatus(c, 201, item)
 }
 
+// ListConversions godoc
+// @Summary List referral conversions
+// @Description List referral conversions for the current organization with optional status filtering.
+// @Tags Referral
+// @Produce json
+// @Security BearerAuth
+// @Param status query string false "Conversion status filter"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /api/v1/menu/referrals/me/conversions [get]
 func (h *Handler) ListConversions(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/referral-handler", "menu.referral.conversions.list")
 	defer span.End()
@@ -170,6 +257,17 @@ func writeReferralPlatformError(c *gin.Context, err error, fallbackMessage, fall
 	response.JSONErrorWithStatusSemantic(c, response.CodeInternalError, message, errorCode, errorHint, status)
 }
 
+// ListCommissions godoc
+// @Summary List commissions
+// @Description List referral commissions for the current organization with optional status filtering.
+// @Tags Referral
+// @Produce json
+// @Security BearerAuth
+// @Param status query string false "Commission status filter"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /api/v1/menu/referrals/me/commissions [get]
 func (h *Handler) ListCommissions(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/referral-handler", "menu.referral.commissions.list")
 	defer span.End()
@@ -183,11 +281,25 @@ func (h *Handler) ListCommissions(c *gin.Context) {
 	response.JSONSuccess(c, gin.H{"items": items})
 }
 
+// RedeemCommissions godoc
+// @Summary Redeem commissions
+// @Description Redeem earned referral commissions into the configured Menu reward asset for the current organization.
+// @Tags Referral
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body RedeemInput false "Redeem commissions request"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 409 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /api/v1/menu/referrals/me/commissions/redeem [post]
 func (h *Handler) RedeemCommissions(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/referral-handler", "menu.referral.commissions.redeem")
 	defer span.End()
 	var req RedeemInput
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOptionalJSON(c, &req); err != nil {
 		span.RecordError(err)
 		response.JSONBindError(c, err, "invalid redeem referral commissions request")
 		return
@@ -211,4 +323,14 @@ func (h *Handler) RedeemCommissions(c *gin.Context) {
 		})
 	}
 	response.JSONSuccess(c, item)
+}
+
+func bindOptionalJSON(c *gin.Context, target any) error {
+	if err := c.ShouldBindJSON(target); err != nil {
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }

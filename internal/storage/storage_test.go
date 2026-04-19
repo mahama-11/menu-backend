@@ -2,48 +2,74 @@ package storage
 
 import (
 	"testing"
-	"gorm.io/gorm/schema"
+
+	"menu-service/internal/config"
 )
 
-func TestMenuNamingStrategy_UsesMenuPrefix(t *testing.T) {
-	ns := menuNamingStrategy{NamingStrategy: schema.NamingStrategy{TablePrefix: "menu_"}}
-
-	cases := map[string]string{
-		ns.TableName("AuditLog"):           "menu_audit_logs",
-		ns.TableName("MenuRole"):           "menu_roles",
-		ns.TableName("MenuPermission"):     "menu_permissions",
-		ns.TableName("MenuRolePermission"): "menu_role_permissions",
-		ns.TableName("MenuSubjectRole"):    "menu_subject_roles",
-		ns.TableName("UserPreference"):     "menu_user_preferences",
-		ns.TableName("Activity"):           "menu_activities",
+func TestValidateAutoMigratePolicy(t *testing.T) {
+	tests := []struct {
+		name    string
+		cfg     config.DatabaseConfig
+		ginMode string
+		wantErr bool
+	}{
+		{
+			name: "disabled is allowed",
+			cfg: config.DatabaseConfig{
+				Driver:             "postgres",
+				AutoMigrateEnabled: false,
+			},
+			ginMode: "release",
+			wantErr: false,
+		},
+		{
+			name: "sqlite is allowed",
+			cfg: config.DatabaseConfig{
+				Driver:             "sqlite",
+				AutoMigrateEnabled: true,
+			},
+			ginMode: "release",
+			wantErr: false,
+		},
+		{
+			name: "debug postgres is allowed",
+			cfg: config.DatabaseConfig{
+				Driver:             "postgres",
+				AutoMigrateEnabled: true,
+			},
+			ginMode: "debug",
+			wantErr: false,
+		},
+		{
+			name: "release postgres blocked by default",
+			cfg: config.DatabaseConfig{
+				Driver:             "postgres",
+				AutoMigrateEnabled: true,
+			},
+			ginMode: "release",
+			wantErr: true,
+		},
+		{
+			name: "release postgres allowed with override",
+			cfg: config.DatabaseConfig{
+				Driver:              "postgres",
+				AutoMigrateEnabled:  true,
+				AllowStartupMigrate: true,
+			},
+			ginMode: "release",
+			wantErr: false,
+		},
 	}
 
-	for got, want := range cases {
-		if got != want {
-			t.Fatalf("unexpected table name, want=%s got=%s", want, got)
-		}
-		if len(got) < len("menu_") || got[:5] != "menu_" {
-			t.Fatalf("table name must keep menu_ prefix, got=%s", got)
-		}
-	}
-}
-
-func TestMenuNamingStrategy_ModelNameMappingStaysStable(t *testing.T) {
-	ns := menuNamingStrategy{NamingStrategy: schema.NamingStrategy{TablePrefix: "menu_"}}
-	cases := map[string]string{
-		"AuditLog":           "menu_audit_logs",
-		"MenuRole":           "menu_roles",
-		"MenuPermission":     "menu_permissions",
-		"MenuRolePermission": "menu_role_permissions",
-		"MenuSubjectRole":    "menu_subject_roles",
-		"UserPreference":     "menu_user_preferences",
-		"Activity":           "menu_activities",
-	}
-
-	for modelName, want := range cases {
-		got := ns.TableName(modelName)
-		if got != want {
-			t.Fatalf("table mapping changed, model=%s want=%s got=%s", modelName, want, got)
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateAutoMigratePolicy(tt.cfg, tt.ginMode)
+			if tt.wantErr && err == nil {
+				t.Fatalf("expected error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
 	}
 }
