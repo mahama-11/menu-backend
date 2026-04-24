@@ -1,7 +1,6 @@
 package studio
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -69,6 +68,36 @@ func TestCreateStylePresetAndGenerationJob(t *testing.T) {
 	}
 	if job.Stage != "queued" || job.Provider == "" {
 		t.Fatalf("unexpected orchestration fields: %+v", job)
+	}
+}
+
+func TestRegisterAsset_PersistsBase64ToLocalStorage(t *testing.T) {
+	mock := newPlatformMockServer(t)
+	service, _ := newStudioTestServiceWithConfig(t, config.StudioConfig{
+		ProductCode:            "menu",
+		ResourceType:           "credits",
+		SingleBillableItem:     "menu.generate.single",
+		RefinementBillableItem: "menu.generate.refinement",
+		VariationBillableItem:  "menu.generate.variation",
+		DefaultProvider:        "volcengine",
+	}, platform.New(config.PlatformConfig{
+		BaseURL:               mock.server.URL,
+		Timeout:               time.Second,
+		ServiceName:           "menu-test",
+		InternalServiceSecret: "test-secret",
+	}))
+	asset, err := service.RegisterAsset("user-1", "org-1", RegisterAssetInput{
+		AssetType:  "source",
+		SourceType: "upload",
+		FileName:   "pig.png",
+		MimeType:   "image/png",
+		SourceURL:  "data:image/png;base64,aGVsbG8=",
+	})
+	if err != nil {
+		t.Fatalf("RegisterAsset() error = %v", err)
+	}
+	if asset.StorageKey == "" || !strings.Contains(asset.SourceURL, "/api/v1/menu/studio/assets/") {
+		t.Fatalf("expected protected asset url, got %+v", asset)
 	}
 }
 
@@ -169,7 +198,7 @@ func TestCreateGenerationJob_IsIdempotent(t *testing.T) {
 	}
 }
 
-func TestHandleDispatchTask_DispatchesQueuedJob(t *testing.T) {
+func TestCreateGenerationJob_BootstrapsPlatformRuntime(t *testing.T) {
 	service := newStudioTestService(t)
 	source, err := service.RegisterAsset("user-1", "org-1", RegisterAssetInput{
 		AssetType:  "source",
@@ -188,15 +217,11 @@ func TestHandleDispatchTask_DispatchesQueuedJob(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateGenerationJob() error = %v", err)
 	}
-	if dispatchErr := service.HandleDispatchTask(context.Background(), job.JobID); dispatchErr != nil {
-		t.Fatalf("HandleDispatchTask() error = %v", dispatchErr)
+	if job.Status != "queued" || job.Stage != "queued" {
+		t.Fatalf("expected queued job, got %+v", job)
 	}
-	dispatched, err := service.GetGenerationJob("org-1", job.JobID)
-	if err != nil {
-		t.Fatalf("GetGenerationJob() error = %v", err)
-	}
-	if dispatched.Status != "processing" || dispatched.Stage != "provider_accepted" || dispatched.ProviderJobID == "" {
-		t.Fatalf("unexpected dispatched job: %+v", dispatched)
+	if job.Charge == nil || job.Charge.BillableItemCode == "" {
+		t.Fatalf("expected charge summary to be created, got %+v", job.Charge)
 	}
 }
 
@@ -351,6 +376,9 @@ func TestRecordJobResults_WithBillingFinalizesChargeIntent(t *testing.T) {
 	if platformMock.finalizeCalls() != 1 {
 		t.Fatalf("finalizeCalls = %d, want 1", platformMock.finalizeCalls())
 	}
+	if platformMock.channelChargeCalls() != 1 {
+		t.Fatalf("channelChargeCalls = %d, want 1", platformMock.channelChargeCalls())
+	}
 }
 
 func TestCancelGenerationJob_WithBillingReleasesChargeIntent(t *testing.T) {
@@ -391,7 +419,20 @@ func TestCancelGenerationJob_WithBillingReleasesChargeIntent(t *testing.T) {
 }
 
 func TestAssetLibrary_ReturnsGeneratedAssetAndShareState(t *testing.T) {
-	service, db := newStudioTestServiceWithConfig(t, config.StudioConfig{}, nil)
+	mock := newPlatformMockServer(t)
+	t.Cleanup(mock.server.Close)
+	service, db := newStudioTestServiceWithConfig(t, config.StudioConfig{
+		ProductCode:            "menu",
+		ResourceType:           "credits",
+		SingleBillableItem:     "menu.generate.single",
+		RefinementBillableItem: "menu.generate.refinement",
+		VariationBillableItem:  "menu.generate.variation",
+	}, platform.New(config.PlatformConfig{
+		BaseURL:               mock.server.URL,
+		Timeout:               time.Second,
+		ServiceName:           "menu-test",
+		InternalServiceSecret: "test-secret",
+	}))
 	source, err := service.RegisterAsset("user-1", "org-1", RegisterAssetInput{
 		AssetType:  "source",
 		SourceType: "upload",
@@ -429,7 +470,7 @@ func TestAssetLibrary_ReturnsGeneratedAssetAndShareState(t *testing.T) {
 	generatedAssetID := completed.Variants[0].AssetID
 	shareRepo := repository.NewShareRepository(db)
 	now := time.Now().UTC()
-	if err := shareRepo.CreatePost(&models.SharePost{
+	if createErr := shareRepo.CreatePost(&models.SharePost{
 		ID:             "share-1",
 		OrganizationID: "org-1",
 		UserID:         "user-1",
@@ -441,8 +482,8 @@ func TestAssetLibrary_ReturnsGeneratedAssetAndShareState(t *testing.T) {
 		ShareToken:     "token-1",
 		ShareURL:       "https://menu.example.com/share/token-1",
 		PublishedAt:    &now,
-	}); err != nil {
-		t.Fatalf("CreatePost() error = %v", err)
+	}); createErr != nil {
+		t.Fatalf("CreatePost() error = %v", createErr)
 	}
 	result, err := service.AssetLibrary("user-1", "org-1", "generated", "", "", 20, 0)
 	if err != nil {
@@ -501,7 +542,8 @@ func TestJobHistory_ReturnsSourceAndSelectedAssets(t *testing.T) {
 }
 
 func newStudioTestService(t *testing.T) *Service {
-	service, _ := newStudioTestServiceWithConfig(t, config.StudioConfig{}, nil)
+	service, mock := newBilledStudioTestService(t)
+	t.Cleanup(mock.server.Close)
 	return service
 }
 
@@ -515,14 +557,12 @@ func newBilledStudioTestService(t *testing.T) (*Service, *platformMockServer) {
 		InternalServiceSecret: "test-secret",
 	})
 	service, _ := newStudioTestServiceWithConfig(t, config.StudioConfig{
-		BillingEnabled:         true,
 		ProductCode:            "menu",
 		ResourceType:           "credits",
 		SingleBillableItem:     "menu.generate.single",
 		RefinementBillableItem: "menu.generate.refinement",
 		VariationBillableItem:  "menu.generate.variation",
 	}, client)
-	t.Cleanup(mock.server.Close)
 	return service, mock
 }
 
@@ -558,26 +598,47 @@ func newStudioTestServiceWithConfig(t *testing.T, cfg config.StudioConfig, platf
 			AllowanceAssetCode: "MENU_MONTHLY_ALLOWANCE",
 		},
 		cfg,
+		config.SecurityConfig{
+			JWTSecret:     "jwt-test-secret",
+			EncryptionKey: "enc-test-secret",
+		},
 	), db
 }
 
 type platformMockServer struct {
 	server        *httptest.Server
 	mu            sync.Mutex
+	resolveCount  int
+	runtimeCount  int
+	sessionCount  int
 	reserveCount  int
 	finalizeCount int
 	releaseCount  int
+	channelCount  int
 }
 
 func newPlatformMockServer(t *testing.T) *platformMockServer {
 	t.Helper()
 	mock := &platformMockServer{}
 	mux := http.NewServeMux()
+	mux.HandleFunc("/internal/v1/commercial/route/resolve", mock.handleResolveRoute)
+	mux.HandleFunc("/internal/v1/storage/assets", mock.handleUploadAsset)
+	mux.HandleFunc("/internal/v1/runtime/charge-sessions", mock.handleCreateChargeSession)
+	mux.HandleFunc("/internal/v1/runtime/jobs", mock.handleCreateRuntimeJob)
 	mux.HandleFunc("/internal/v1/controls/reservations", mock.handleReserve)
 	mux.HandleFunc("/internal/v1/metering/finalizations", mock.handleFinalize)
 	mux.HandleFunc("/internal/v1/controls/reservations/", mock.handleReservationAction)
+	mux.HandleFunc("/internal/v1/incentives/channel-events/charges", mock.handleChannelCharge)
 	mock.server = httptest.NewServer(mux)
 	return mock
+}
+
+func (m *platformMockServer) handleUploadAsset(w http.ResponseWriter, _ *http.Request) {
+	writePlatformSuccess(w, map[string]any{
+		"storage_key": "menu/studio-assets/test.png",
+		"mime_type":   "image/png",
+		"file_size":   5,
+	})
 }
 
 func (m *platformMockServer) reserveCalls() int {
@@ -596,6 +657,96 @@ func (m *platformMockServer) releaseCalls() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.releaseCount
+}
+
+func (m *platformMockServer) channelChargeCalls() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.channelCount
+}
+
+func (m *platformMockServer) handleResolveRoute(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.NotFound(w, r)
+		return
+	}
+	m.mu.Lock()
+	m.resolveCount++
+	call := m.resolveCount
+	m.mu.Unlock()
+	writePlatformSuccess(w, map[string]any{
+		"billing_profile_key":   "menu-service",
+		"routing_policy_key":    "studio-default",
+		"merchant_account_id":   "merchant-1",
+		"provider_channel":      "volcengine",
+		"route_snapshot":        fmt.Sprintf("{\"route\":\"snapshot-%d\"}", call),
+		"settlement_currency":   "CNY",
+		"wallet_asset_code":     "MENU_CREDIT",
+		"commission_asset_code": "COMMISSION_LEDGER",
+	})
+}
+
+func (m *platformMockServer) handleCreateChargeSession(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.NotFound(w, r)
+		return
+	}
+	m.mu.Lock()
+	m.sessionCount++
+	call := m.sessionCount
+	m.mu.Unlock()
+	writePlatformSuccess(w, map[string]any{
+		"id":                 fmt.Sprintf("charge-session-%d", call),
+		"source_type":        "menu_generation_job",
+		"source_id":          fmt.Sprintf("job-%d", call),
+		"product_code":       "menu-service",
+		"organization_id":    "org-1",
+		"user_id":            "user-1",
+		"billable_item_code": "menu.generate.single",
+		"resource_type":      "credits",
+		"status":             "created",
+		"reservation_key":    fmt.Sprintf("studio:reservation:job-%d", call),
+		"estimated_units":    1,
+		"route_snapshot":     "{}",
+		"metadata":           "{}",
+		"created_at":         time.Now().UTC().Format(time.RFC3339),
+		"updated_at":         time.Now().UTC().Format(time.RFC3339),
+	})
+}
+
+func (m *platformMockServer) handleCreateRuntimeJob(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.NotFound(w, r)
+		return
+	}
+	m.mu.Lock()
+	m.runtimeCount++
+	call := m.runtimeCount
+	m.mu.Unlock()
+	writePlatformSuccess(w, map[string]any{
+		"id":                fmt.Sprintf("runtime-job-%d", call),
+		"product_code":      "menu-service",
+		"task_type":         "image_generation",
+		"provider_code":     "mock",
+		"provider_mode":     "sync",
+		"organization_id":   "org-1",
+		"user_id":           "user-1",
+		"source_type":       "menu_generation_job",
+		"source_id":         fmt.Sprintf("job-%d", call),
+		"charge_session_id": fmt.Sprintf("charge-session-%d", call),
+		"status":            "queued",
+		"stage":             "queued",
+		"stage_message":     "Runtime job queued",
+		"input_manifest":    "{}",
+		"output_manifest":   "",
+		"route_snapshot":    "{}",
+		"metadata":          "{}",
+		"priority":          0,
+		"attempt_count":     0,
+		"max_attempts":      3,
+		"created_at":        time.Now().UTC().Format(time.RFC3339),
+		"updated_at":        time.Now().UTC().Format(time.RFC3339),
+	})
 }
 
 func (m *platformMockServer) handleReserve(w http.ResponseWriter, r *http.Request) {
@@ -678,6 +829,33 @@ func (m *platformMockServer) handleReservationAction(w http.ResponseWriter, r *h
 		"created_at":    time.Now().UTC().Format(time.RFC3339),
 		"updated_at":    time.Now().UTC().Format(time.RFC3339),
 		"released_at":   time.Now().UTC().Format(time.RFC3339),
+	})
+}
+
+func (m *platformMockServer) handleChannelCharge(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.NotFound(w, r)
+		return
+	}
+	m.mu.Lock()
+	m.channelCount++
+	call := m.channelCount
+	m.mu.Unlock()
+	writePlatformSuccess(w, map[string]any{
+		"matched":            true,
+		"idempotent":         false,
+		"status":             "earned",
+		"binding_id":         "binding-1",
+		"channel_partner_id": "partner-1",
+		"policy_id":          "policy-1",
+		"ledger": map[string]any{
+			"id":                fmt.Sprintf("channel-ledger-%d", call),
+			"source_charge_id":  fmt.Sprintf("settlement-%d", call),
+			"commission_amount": 10,
+			"status":            "earned",
+			"created_at":        time.Now().UTC().Format(time.RFC3339),
+			"updated_at":        time.Now().UTC().Format(time.RFC3339),
+		},
 	})
 }
 

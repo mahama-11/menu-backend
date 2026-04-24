@@ -1,11 +1,14 @@
 package auth
 
 import (
+	"fmt"
 	"menu-service/internal/config"
 	"menu-service/internal/models"
 	authz "menu-service/internal/modules/authz"
 	"menu-service/internal/platform"
 	"menu-service/internal/repository"
+	"menu-service/pkg/logger"
+	"strings"
 	"time"
 )
 
@@ -22,6 +25,7 @@ type RegisterInput struct {
 	RestaurantName string `json:"restaurant_name" binding:"required,min=2"`
 	Role           string `json:"role"`
 	ReferralCode   string `json:"referral_code,omitempty"`
+	ChannelCode    string `json:"channel_code,omitempty"`
 }
 
 type LoginInput struct {
@@ -170,6 +174,34 @@ func (s *Service) Register(input RegisterInput) (*AuthResult, error) {
 				Status:         "succeeded",
 				CreditsUsed:    0,
 				EventID:        input.ReferralCode,
+			})
+		}
+	}
+
+	if input.ChannelCode != "" {
+		if channelErr := s.createSignupChannelBinding(authResult.User, input); channelErr != nil {
+			logger.With("org_id", authResult.User.OrgID, "channel_code", input.ChannelCode, "error", channelErr).Error("auth.register.channel_binding_failed")
+			if s.repo != nil {
+				_ = s.repo.CreateActivity(&models.Activity{
+					UserID:         authResult.User.ID,
+					OrganizationID: authResult.User.OrgID,
+					ActionType:     "channel_signup_binding",
+					ActionName:     "Channel Signup Binding",
+					Status:         "failed",
+					CreditsUsed:    0,
+					ErrorMessage:   channelErr.Error(),
+					EventID:        input.ChannelCode,
+				})
+			}
+		} else if s.repo != nil {
+			_ = s.repo.CreateActivity(&models.Activity{
+				UserID:         authResult.User.ID,
+				OrganizationID: authResult.User.OrgID,
+				ActionType:     "channel_signup_binding",
+				ActionName:     "Channel Signup Binding",
+				Status:         "succeeded",
+				CreditsUsed:    0,
+				EventID:        input.ChannelCode,
 			})
 		}
 	}
@@ -371,6 +403,54 @@ func (s *Service) createSignupReferralConversion(user platform.PlatformUserProfi
 		ReferenceID:           user.ID,
 		Metadata:              input.Role,
 	})
+	return err
+}
+
+func (s *Service) createSignupChannelBinding(user platform.PlatformUserProfile, input RegisterInput) error {
+	partners, err := s.platform.ListChannelPartners("active")
+	if err != nil {
+		return err
+	}
+	channelCode := strings.TrimSpace(input.ChannelCode)
+	var partner *platform.ChannelPartner
+	for i := range partners {
+		if strings.EqualFold(partners[i].Code, channelCode) {
+			partner = &partners[i]
+			break
+		}
+	}
+	if partner == nil {
+		return fmt.Errorf("channel partner code not found: %s", channelCode)
+	}
+	programs, err := s.platform.ListChannelPrograms("menu", "active")
+	if err != nil {
+		return err
+	}
+	var program *platform.ChannelProgram
+	for i := range programs {
+		if programs[i].ProgramType == "channel_revenue_share" {
+			program = &programs[i]
+			break
+		}
+	}
+	if program == nil {
+		return fmt.Errorf("active channel revenue share program not found")
+	}
+	_, err = s.platform.CreateChannelBinding(platform.CreateChannelBindingInput{
+		ProductCode:      "menu",
+		OrgID:            user.OrgID,
+		ChannelPartnerID: partner.ID,
+		ChannelProgramID: program.ID,
+		BindingSource:    "signup_code",
+		SourceCode:       channelCode,
+		SourceRefID:      user.ID,
+		Status:           "active",
+		CreatedBy:        "menu_auth_register",
+		Metadata:         input.Role,
+	})
+	if err != nil && platform.IsConflict(err) {
+		return nil
+	}
 	return err
 }
 

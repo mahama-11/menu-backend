@@ -23,6 +23,13 @@ The first Swagger / OpenAPI scope focuses on frontend P0 integration:
 - `GET /api/v1/menu/referrals/me/conversions`
 - `GET /api/v1/menu/referrals/me/commissions`
 - `POST /api/v1/menu/referrals/me/commissions/redeem`
+- `GET /api/v1/menu/channel/current-binding`
+- `GET /api/v1/menu/channel/me/overview`
+- `GET /api/v1/menu/channel/me/commissions`
+- `GET /api/v1/menu/channel/me/settlements`
+- `POST /api/v1/menu/channel/me/preview`
+- `GET /api/v1/menu/channel/me/adjustments`
+- `POST /api/v1/menu/channel/me/adjustments`
 - `GET /api/v1/menu/share/posts`
 - `POST /api/v1/menu/share/posts`
 - `GET /api/v1/menu/share/posts/:shareID`
@@ -85,5 +92,6 @@ docs/openapi/
 - Internal execution callbacks are intentionally separated from browser APIs: worker/provider updates use `/internal/v1/menu/studio/jobs/:jobID/runtime` and `/internal/v1/menu/studio/jobs/:jobID/results`, while frontend integration guidance is documented in `docs/architecture/STUDIO_FRONTEND_INTEGRATION.md`.
 - Error handling should now prioritize semantic fields instead of guessing from generic status text alone: `error_code` is the stable machine-facing key (for example `INVALID_CREDENTIALS`, `TOKEN_EXPIRED`, `PROFILE_UPDATE_FAILED`) and `error_hint` is the user-facing recovery hint that frontend can display directly or localize.
 - Referral and commission product APIs are now exposed from Menu itself rather than requiring frontend to call platform internal incentive routes directly: use Menu routes for `referrals/programs`, `referrals/me/overview`, `referrals/me/codes`, `referrals/me/conversions`, and `referrals/me/commissions`.
+- Channel revenue share product APIs are now exposed from Menu itself as a product aggregation layer over platform channel accounting: use Menu routes for `channel/current-binding`, `channel/me/overview`, `channel/me/commissions`, `channel/me/settlements`, `channel/me/preview`, and `channel/me/adjustments`.
 - Referral code responses are now frontend-ready rather than backend-only: `referrals/me/codes`, `referrals/me/codes/ensure`, and `referrals/me/codes` create responses include `invite_url`, `signup_url`, and `share_text`, so frontend can directly render copy/share CTA without inventing invite link rules locally.
 - Publishing/social semantics now have an explicit product boundary: use `share/posts` to create and query publishable share objects with stable `share_url`, visibility, and placeholder engagement counters (`view_count`, `like_count`, `favorite_count`) without leaking future social behavior into raw `StudioAsset` rows.

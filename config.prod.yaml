@@ -61,3 +61,14 @@ monitoring:
     jaeger_endpoint: "http://localhost:14268/api/traces"
     sample_rate: 1.0
     log_spans: false
+
+studio:
+  default_provider: "volcengine"
+
+volcengine:
+  api_key: "ark-2e5e5fa9-82f1-4ab4-be28-e47c6ecd12ee-e8dfe"
+  base_url: "https://ark.cn-beijing.volces.com/api/v3"
+  image_model: "doubao-seedream-4-5-251128"
+  image_size: "2K"
+  output_format: "png"
+  watermark: false

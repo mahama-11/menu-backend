@@ -3,11 +3,13 @@ package app
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"menu-service/internal/config"
 	audit "menu-service/internal/modules/audit"
 	auth "menu-service/internal/modules/auth"
 	authz "menu-service/internal/modules/authz"
+	channel "menu-service/internal/modules/channel"
 	referral "menu-service/internal/modules/referral"
 	share "menu-service/internal/modules/share"
 	studio "menu-service/internal/modules/studio"
@@ -38,6 +40,9 @@ func New(configFile string) (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load config: %w", err)
 	}
+	if err := validateDatabaseConfig(cfg.Database); err != nil {
+		return nil, err
+	}
 	db, err := storage.InitDB(cfg.Database, cfg.GinMode)
 	if err != nil {
 		return nil, fmt.Errorf("init database: %w", err)
@@ -52,6 +57,9 @@ func New(configFile string) (*App, error) {
 		return nil, fmt.Errorf("init tracing: %w", err)
 	}
 	platformClient := platform.New(cfg.Platform)
+	if err := validateStudioConfig(cfg.App, cfg.Studio); err != nil {
+		return nil, err
+	}
 	authzRepo := repository.NewAuthzRepository(db)
 	userRepo := repository.NewUserRepository(db)
 	auditRepo := repository.NewAuditRepository(db)
@@ -61,8 +69,9 @@ func New(configFile string) (*App, error) {
 	authzService := authz.NewService(authzRepo, platformClient)
 	authService := auth.NewService(platformClient, userRepo, authzService, cfg.App)
 	userService := user.NewService(userRepo, studioRepo, platformClient, authService, auditService)
+	channelService := channel.NewService(platformClient)
 	referralService := referral.NewService(platformClient, cfg.App)
-	studioService := studio.NewService(studioRepo, shareRepo, userRepo, auditService, platformClient, cfg.App, cfg.Studio)
+	studioService := studio.NewService(studioRepo, shareRepo, userRepo, auditService, platformClient, cfg.App, cfg.Studio, cfg.Security)
 	shareService := share.NewService(shareRepo, studioRepo, cfg.App)
 	if bootstrapErr := authzService.Bootstrap(); bootstrapErr != nil {
 		return nil, fmt.Errorf("bootstrap menu authz: %w", bootstrapErr)
@@ -70,26 +79,37 @@ func New(configFile string) (*App, error) {
 	if referralBootstrapErr := referralService.Bootstrap(); referralBootstrapErr != nil {
 		return nil, fmt.Errorf("bootstrap menu referral: %w", referralBootstrapErr)
 	}
-	var studioRuntime *studio.AsynqRuntime
-	if cfg.Studio.WorkerEnabled {
-		studioRuntime, err = studio.NewAsynqRuntime(cfg.Redis, cfg.Studio, studioService)
-		if err != nil {
-			return nil, fmt.Errorf("init studio runtime: %w", err)
-		}
-		studioService.UseRuntime(studioRuntime, nil)
-		if err := studioRuntime.Start(); err != nil {
-			return nil, fmt.Errorf("start studio runtime: %w", err)
-		}
-	}
 	app := &App{Config: *cfg, Platform: platformClient, DB: db, Redis: redisClient, Shutdown: func(ctx context.Context) error {
-		if studioRuntime != nil {
-			studioRuntime.Shutdown()
-		}
 		if shutdown != nil {
 			return shutdown(ctx)
 		}
 		return nil
 	}}
-	app.Router = router.New(*cfg, platformClient, auth.NewHandler(authService, auditService), user.NewHandler(userService, auditService), authz.NewHandler(authzService), referral.NewHandler(referralService, auditService), studio.NewHandler(studioService, auditService), share.NewHandler(shareService, auditService), authzService)
+	app.Router = router.New(*cfg, platformClient, auth.NewHandler(authService, auditService), user.NewHandler(userService, auditService), authz.NewHandler(authzService), channel.NewHandler(channelService), referral.NewHandler(referralService, auditService), studio.NewHandler(studioService, auditService), share.NewHandler(shareService, auditService), authzService)
 	return app, nil
+}
+
+func validateStudioConfig(appCfg config.AppConfig, cfg config.StudioConfig) error {
+	_ = appCfg
+	if cfg.ProductCode == "" {
+		return fmt.Errorf("studio.product_code is required")
+	}
+	if cfg.ResourceType == "" {
+		return fmt.Errorf("studio.resource_type is required")
+	}
+	if cfg.SingleBillableItem == "" || cfg.RefinementBillableItem == "" || cfg.VariationBillableItem == "" {
+		return fmt.Errorf("studio billable items are required")
+	}
+	if cfg.DefaultProvider == "" {
+		return fmt.Errorf("studio.default_provider is required")
+	}
+	return nil
+}
+
+func validateDatabaseConfig(cfg config.DatabaseConfig) error {
+	if strings.EqualFold(cfg.Driver, "sqlite") &&
+		(cfg.Host != "database" || cfg.Port != 5432 || cfg.User != "menu" || cfg.DBName != "menu") {
+		return fmt.Errorf("database.driver=sqlite but external database fields are configured; set database.driver=postgres to use host=%s dbname=%s", cfg.Host, cfg.DBName)
+	}
+	return nil
 }

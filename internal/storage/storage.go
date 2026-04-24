@@ -156,6 +156,8 @@ func autoMigrate(db *gorm.DB) error {
 		&models.GenerationVariant{},
 		&models.StudioChargeIntent{},
 		&models.SharePost{},
+		&models.SharePostLike{},
+		&models.SharePostFavorite{},
 	}
 
 	for _, model := range modelsToMigrate {
@@ -181,6 +183,8 @@ func preAutoMigrate(db *gorm.DB, tablePrefix string) error {
 			{"generation_variants", tablePrefix + "generation_variants"},
 			{"studio_charge_intents", tablePrefix + "studio_charge_intents"},
 			{"share_posts", tablePrefix + "share_posts"},
+			{"share_post_likes", tablePrefix + "share_post_likes"},
+			{"share_post_favorites", tablePrefix + "share_post_favorites"},
 		}
 		for _, item := range renames {
 			oldName := item[0]

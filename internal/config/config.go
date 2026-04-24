@@ -21,6 +21,16 @@ type Config struct {
 	Security   SecurityConfig   `mapstructure:"security"`
 	Platform   PlatformConfig   `mapstructure:"platform"`
 	Monitoring MonitoringConfig `mapstructure:"monitoring"`
+	Volcengine VolcengineConfig `mapstructure:"volcengine"`
+}
+
+type VolcengineConfig struct {
+	APIKey       string `mapstructure:"api_key"`
+	BaseURL      string `mapstructure:"base_url"`
+	ImageModel   string `mapstructure:"image_model"`
+	ImageSize    string `mapstructure:"image_size"`
+	OutputFormat string `mapstructure:"output_format"`
+	Watermark    bool   `mapstructure:"watermark"`
 }
 
 type AppConfig struct {
@@ -32,22 +42,21 @@ type AppConfig struct {
 }
 
 type StudioConfig struct {
-	WorkerEnabled        bool          `mapstructure:"worker_enabled"`
-	WorkerConcurrency    int           `mapstructure:"worker_concurrency"`
-	QueueName            string        `mapstructure:"queue_name"`
-	BillingEnabled       bool          `mapstructure:"billing_enabled"`
-	ProductCode          string        `mapstructure:"product_code"`
-	ResourceType         string        `mapstructure:"resource_type"`
-	SingleBillableItem   string        `mapstructure:"single_billable_item"`
-	RefinementBillableItem string      `mapstructure:"refinement_billable_item"`
-	VariationBillableItem string       `mapstructure:"variation_billable_item"`
-	ExecutionTimeout     time.Duration `mapstructure:"execution_timeout"`
-	RetryBackoff         time.Duration `mapstructure:"retry_backoff"`
-	MaxAttempts          int           `mapstructure:"max_attempts"`
-	MaxConcurrentPerUser int           `mapstructure:"max_concurrent_per_user"`
-	MaxConcurrentPerOrg  int           `mapstructure:"max_concurrent_per_org"`
-	DefaultProvider      string        `mapstructure:"default_provider"`
-	DefaultVariantCount  int           `mapstructure:"default_variant_count"`
+	WorkerEnabled          bool          `mapstructure:"worker_enabled"`
+	WorkerConcurrency      int           `mapstructure:"worker_concurrency"`
+	QueueName              string        `mapstructure:"queue_name"`
+	ProductCode            string        `mapstructure:"product_code"`
+	ResourceType           string        `mapstructure:"resource_type"`
+	SingleBillableItem     string        `mapstructure:"single_billable_item"`
+	RefinementBillableItem string        `mapstructure:"refinement_billable_item"`
+	VariationBillableItem  string        `mapstructure:"variation_billable_item"`
+	ExecutionTimeout       time.Duration `mapstructure:"execution_timeout"`
+	RetryBackoff           time.Duration `mapstructure:"retry_backoff"`
+	MaxAttempts            int           `mapstructure:"max_attempts"`
+	MaxConcurrentPerUser   int           `mapstructure:"max_concurrent_per_user"`
+	MaxConcurrentPerOrg    int           `mapstructure:"max_concurrent_per_org"`
+	DefaultProvider        string        `mapstructure:"default_provider"`
+	DefaultVariantCount    int           `mapstructure:"default_variant_count"`
 }
 
 type DatabaseConfig struct {
@@ -156,21 +165,20 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("app.credits_asset_code", "MENU_CREDIT")
 	v.SetDefault("app.reward_asset_code", "MENU_PROMO_CREDIT")
 	v.SetDefault("app.allowance_asset_code", "MENU_MONTHLY_ALLOWANCE")
-	v.SetDefault("studio.worker_enabled", true)
+	v.SetDefault("studio.worker_enabled", false)
 	v.SetDefault("studio.worker_concurrency", 8)
 	v.SetDefault("studio.queue_name", "studio:default")
-	v.SetDefault("studio.billing_enabled", true)
-	v.SetDefault("studio.product_code", "menu")
-	v.SetDefault("studio.resource_type", "credits")
-	v.SetDefault("studio.single_billable_item", "menu_studio_single_generate")
-	v.SetDefault("studio.refinement_billable_item", "menu_studio_refinement_generate")
-	v.SetDefault("studio.variation_billable_item", "menu_studio_variation_generate")
+	v.SetDefault("studio.product_code", "")
+	v.SetDefault("studio.resource_type", "")
+	v.SetDefault("studio.single_billable_item", "")
+	v.SetDefault("studio.refinement_billable_item", "")
+	v.SetDefault("studio.variation_billable_item", "")
 	v.SetDefault("studio.execution_timeout", "5m")
 	v.SetDefault("studio.retry_backoff", "15s")
 	v.SetDefault("studio.max_attempts", 3)
 	v.SetDefault("studio.max_concurrent_per_user", 2)
 	v.SetDefault("studio.max_concurrent_per_org", 8)
-	v.SetDefault("studio.default_provider", "manual")
+	v.SetDefault("studio.default_provider", "")
 	v.SetDefault("studio.default_variant_count", 4)
 	v.SetDefault("database.driver", "sqlite")
 	v.SetDefault("database.host", "database")
@@ -218,4 +226,10 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("monitoring.tracing.jaeger_endpoint", "http://localhost:14268/api/traces")
 	v.SetDefault("monitoring.tracing.sample_rate", 1.0)
 	v.SetDefault("monitoring.tracing.log_spans", false)
+	v.SetDefault("volcengine.api_key", "")
+	v.SetDefault("volcengine.base_url", "https://ark.cn-beijing.volces.com/api/v3")
+	v.SetDefault("volcengine.image_model", "doubao-seedream-5-0-260128")
+	v.SetDefault("volcengine.image_size", "2K")
+	v.SetDefault("volcengine.output_format", "png")
+	v.SetDefault("volcengine.watermark", false)
 }

@@ -35,11 +35,13 @@ func (r *AuthzRepository) SeedDefaults() error {
 		{ID: "menu.analytics.read", Category: "analytics", Name: "menu.analytics.read", Description: "Read analytics"},
 		{ID: "menu.referral.read", Category: "growth", Name: "menu.referral.read", Description: "Read referral and commission data"},
 		{ID: "menu.referral.manage", Category: "growth", Name: "menu.referral.manage", Description: "Manage referral codes"},
+		{ID: "menu.channel.read", Category: "growth", Name: "menu.channel.read", Description: "Read channel binding, commission, and settlement data"},
+		{ID: "menu.channel.manage", Category: "growth", Name: "menu.channel.manage", Description: "Manage channel integration operations"},
 	}
 	mapping := map[string][]string{
-		"menu.workspace_admin": {"menu.access", "menu.asset.upload", "menu.asset.read", "menu.job.create", "menu.job.read", "menu.job.manage", "menu.template.manage", "menu.template.read", "menu.share.read", "menu.share.manage", "menu.audit.read", "menu.analytics.read", "menu.referral.read", "menu.referral.manage"},
-		"menu.editor":          {"menu.access", "menu.asset.upload", "menu.asset.read", "menu.job.create", "menu.job.read", "menu.template.read", "menu.share.read", "menu.share.manage", "menu.audit.read", "menu.referral.read", "menu.referral.manage"},
-		"menu.viewer":          {"menu.access", "menu.asset.read", "menu.job.read", "menu.template.read", "menu.share.read", "menu.audit.read", "menu.analytics.read", "menu.referral.read"},
+		"menu.workspace_admin": {"menu.access", "menu.asset.upload", "menu.asset.read", "menu.job.create", "menu.job.read", "menu.job.manage", "menu.template.manage", "menu.template.read", "menu.share.read", "menu.share.manage", "menu.audit.read", "menu.analytics.read", "menu.referral.read", "menu.referral.manage", "menu.channel.read", "menu.channel.manage"},
+		"menu.editor":          {"menu.access", "menu.asset.upload", "menu.asset.read", "menu.job.create", "menu.job.read", "menu.template.read", "menu.share.read", "menu.share.manage", "menu.audit.read", "menu.referral.read", "menu.referral.manage", "menu.channel.read"},
+		"menu.viewer":          {"menu.access", "menu.asset.read", "menu.job.read", "menu.template.read", "menu.share.read", "menu.audit.read", "menu.analytics.read", "menu.referral.read", "menu.channel.read"},
 	}
 	for _, role := range roles {
 		if err := r.db.FirstOrCreate(&role, models.MenuRole{ID: role.ID}).Error; err != nil {

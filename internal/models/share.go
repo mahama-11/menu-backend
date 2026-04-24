@@ -27,3 +27,19 @@ type SharePost struct {
 	CreatedAt      time.Time  `gorm:"index:idx_share_post_org_user_created,priority:3,sort:desc;autoCreateTime" json:"created_at"`
 	UpdatedAt      time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
 }
+
+type SharePostLike struct {
+	ID             string    `gorm:"type:varchar(64);primaryKey" json:"id"`
+	OrganizationID string    `gorm:"type:varchar(64);uniqueIndex:idx_share_post_like_user,priority:1;index;not null" json:"organization_id"`
+	SharePostID    string    `gorm:"type:varchar(64);uniqueIndex:idx_share_post_like_user,priority:2;index;not null" json:"share_post_id"`
+	UserID         string    `gorm:"type:varchar(64);uniqueIndex:idx_share_post_like_user,priority:3;index;not null" json:"user_id"`
+	CreatedAt      time.Time `gorm:"autoCreateTime" json:"created_at"`
+}
+
+type SharePostFavorite struct {
+	ID             string    `gorm:"type:varchar(64);primaryKey" json:"id"`
+	OrganizationID string    `gorm:"type:varchar(64);uniqueIndex:idx_share_post_favorite_user,priority:1;index;not null" json:"organization_id"`
+	SharePostID    string    `gorm:"type:varchar(64);uniqueIndex:idx_share_post_favorite_user,priority:2;index;not null" json:"share_post_id"`
+	UserID         string    `gorm:"type:varchar(64);uniqueIndex:idx_share_post_favorite_user,priority:3;index;not null" json:"user_id"`
+	CreatedAt      time.Time `gorm:"autoCreateTime" json:"created_at"`
+}

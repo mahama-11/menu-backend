@@ -1,6 +1,7 @@
 package studio
 
 import (
+	"io"
 	"strconv"
 
 	audit "menu-service/internal/modules/audit"
@@ -81,6 +82,32 @@ func (h *Handler) RegisterAsset(c *gin.Context) {
 		})
 	}
 	response.JSONSuccessWithStatus(c, 201, item)
+}
+
+func (h *Handler) GetAssetContent(c *gin.Context) {
+	span := telemetry.StartGinSpan(c, "menu-service/studio-handler", "menu.studio.asset.content")
+	defer span.End()
+	expiresAt, parseErr := strconv.ParseInt(c.Query("expires"), 10, 64)
+	if parseErr != nil || !h.service.ValidateAssetAccessSignature(c.Param("assetID"), expiresAt, c.Query("sig")) {
+		response.JSONErrorSemantic(c, response.CodeForbidden, "Forbidden", "STUDIO_ASSET_CONTENT_FORBIDDEN", "Refresh and try again.")
+		return
+	}
+	item, body, headers, err := h.service.GetAssetContent("", c.Param("assetID"))
+	if err != nil {
+		span.RecordError(err)
+		_ = c.Error(err)
+		response.JSONErrorSemantic(c, response.CodeNotFound, "Asset content not found", "STUDIO_ASSET_CONTENT_NOT_FOUND", "Refresh and try again.")
+		return
+	}
+	defer body.Close()
+	if contentType := headers.Get("Content-Type"); contentType != "" {
+		c.Header("Content-Type", contentType)
+	} else if item.MimeType != "" {
+		c.Header("Content-Type", item.MimeType)
+	}
+	if _, copyErr := io.Copy(c.Writer, body); copyErr != nil {
+		span.RecordError(copyErr)
+	}
 }
 
 func (h *Handler) ListStylePresets(c *gin.Context) {

@@ -1,10 +1,18 @@
 package studio
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"maps"
+	"net/http"
+	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,8 +33,7 @@ type Service struct {
 	platform  *platform.Client
 	appCfg    config.AppConfig
 	cfg       config.StudioConfig
-	registry  *ProviderRegistry
-	queue     JobQueue
+	security  config.SecurityConfig
 }
 
 type StyleDimension struct {
@@ -243,7 +250,8 @@ type CreateGenerationJobInput struct {
 	Provider          string         `json:"provider"`
 	IdempotencyKey    string         `json:"idempotency_key"`
 	StylePresetID     string         `json:"style_preset_id"`
-	SourceAssetIDs    []string       `json:"source_asset_ids" binding:"required,min=1"`
+	SourceAssetIDs    []string       `json:"source_asset_ids"`
+	Prompt            string         `json:"prompt"`
 	ParentJobID       string         `json:"parent_job_id"`
 	ParentVariantID   string         `json:"parent_variant_id"`
 	RequestedVariants int            `json:"requested_variants"`
@@ -287,7 +295,7 @@ type SelectVariantInput struct {
 	VariantID string `json:"variant_id" binding:"required"`
 }
 
-func NewService(repo *repository.StudioRepository, shareRepo *repository.ShareRepository, userRepo *repository.UserRepository, auditService *audit.Service, platformClient *platform.Client, appCfg config.AppConfig, cfg config.StudioConfig) *Service {
+func NewService(repo *repository.StudioRepository, shareRepo *repository.ShareRepository, userRepo *repository.UserRepository, auditService *audit.Service, platformClient *platform.Client, appCfg config.AppConfig, cfg config.StudioConfig, securityCfg config.SecurityConfig) *Service {
 	return &Service{
 		repo:      repo,
 		shareRepo: shareRepo,
@@ -295,34 +303,54 @@ func NewService(repo *repository.StudioRepository, shareRepo *repository.ShareRe
 		audit:     auditService,
 		platform:  platformClient,
 		appCfg:    appCfg,
-		cfg:       defaultStudioConfig(cfg),
-		registry:  NewProviderRegistry(),
-		queue:     newNoopQueue(),
+		cfg:       cfg,
+		security:  securityCfg,
 	}
 }
 
 func (s *Service) RegisterAsset(userID, orgID string, input RegisterAssetInput) (*AssetSummary, error) {
+	normalizedInput := input
+	if payload := firstNonEmpty(strings.TrimSpace(input.SourceURL), strings.TrimSpace(input.PreviewURL)); payload != "" && !strings.HasPrefix(payload, "http://") && !strings.HasPrefix(payload, "https://") {
+		if s.platform == nil {
+			return nil, fmt.Errorf("platform client is required for asset upload")
+		}
+		stored, err := s.platform.UploadAsset(platform.UploadAssetInput{
+			ProductCode: s.cfg.ProductCode,
+			Category:    "studio-assets",
+			FileName:    input.FileName,
+			MimeType:    input.MimeType,
+			Payload:     payload,
+		})
+		if err != nil {
+			return nil, err
+		}
+		normalizedInput.StorageKey = stored.StorageKey
+		normalizedInput.SourceURL = ""
+		normalizedInput.PreviewURL = ""
+		normalizedInput.MimeType = firstNonEmpty(stored.MimeType, input.MimeType)
+		normalizedInput.FileSize = stored.FileSize
+	}
 	item := &models.StudioAsset{
 		UserID:         userID,
 		OrganizationID: orgID,
-		AssetType:      input.AssetType,
-		SourceType:     input.SourceType,
+		AssetType:      normalizedInput.AssetType,
+		SourceType:     normalizedInput.SourceType,
 		Status:         "ready",
-		FileName:       input.FileName,
-		MimeType:       input.MimeType,
-		StorageKey:     input.StorageKey,
-		SourceURL:      input.SourceURL,
-		PreviewURL:     firstNonEmpty(input.PreviewURL, input.SourceURL),
-		Width:          input.Width,
-		Height:         input.Height,
-		FileSize:       input.FileSize,
-		Metadata:       mustEncodeJSON(input.Metadata),
+		FileName:       normalizedInput.FileName,
+		MimeType:       normalizedInput.MimeType,
+		StorageKey:     normalizedInput.StorageKey,
+		SourceURL:      normalizedInput.SourceURL,
+		PreviewURL:     firstNonEmpty(normalizedInput.PreviewURL, normalizedInput.SourceURL),
+		Width:          normalizedInput.Width,
+		Height:         normalizedInput.Height,
+		FileSize:       normalizedInput.FileSize,
+		Metadata:       mustEncodeJSON(normalizedInput.Metadata),
 	}
 	if err := s.repo.CreateAsset(item); err != nil {
 		return nil, err
 	}
 	_ = s.createActivity(userID, orgID, "studio.asset", "Register asset", "succeeded", 0, "", "")
-	return mapAsset(item), nil
+	return s.mapAsset(item), nil
 }
 
 func (s *Service) ListAssets(userID, orgID, assetType, status string) ([]AssetSummary, error) {
@@ -332,7 +360,7 @@ func (s *Service) ListAssets(userID, orgID, assetType, status string) ([]AssetSu
 	}
 	out := make([]AssetSummary, 0, len(items))
 	for _, item := range items {
-		out = append(out, *mapAsset(&item))
+		out = append(out, *s.mapAsset(&item))
 	}
 	return out, nil
 }
@@ -526,9 +554,6 @@ func (s *Service) CreateGenerationJob(userID, orgID string, input CreateGenerati
 			if err := s.createChargeIntentForJob(child); err != nil {
 				return nil, err
 			}
-			if err := s.queue.EnqueueDispatch(child.ID, 0); err != nil {
-				return nil, err
-			}
 		}
 		_ = s.createActivity(userID, orgID, "studio.job", "Create batch generation job", "queued", 0, "", root.ID)
 		return s.GetGenerationJob(orgID, root.ID)
@@ -561,9 +586,6 @@ func (s *Service) CreateGenerationJob(userID, orgID string, input CreateGenerati
 		return nil, err
 	}
 	if err := s.createChargeIntentForJob(item); err != nil {
-		return nil, err
-	}
-	if err := s.queue.EnqueueDispatch(item.ID, 0); err != nil {
 		return nil, err
 	}
 	_ = s.createActivity(userID, orgID, "studio.job", "Create generation job", "queued", 0, "", item.ID)
@@ -628,6 +650,61 @@ func (s *Service) GetGenerationJob(orgID, jobID string) (*GenerationJobSummary, 
 		}
 	}
 	return s.mapGenerationJob(item, variants, childJobs, chargeIntent), nil
+}
+
+func (s *Service) GetAssetContent(orgID, assetID string) (*models.StudioAsset, io.ReadCloser, http.Header, error) {
+	var (
+		item *models.StudioAsset
+		err  error
+	)
+	if orgID != "" {
+		item, err = s.repo.FindAssetByID(orgID, assetID)
+	} else {
+		item, err = s.repo.FindAssetByIDGlobal(assetID)
+	}
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if item.StorageKey == "" {
+		return item, nil, nil, fmt.Errorf("asset storage key is empty")
+	}
+	if s.platform == nil {
+		return item, nil, nil, fmt.Errorf("platform client is required")
+	}
+	body, headers, err := s.platform.DownloadAsset(item.StorageKey)
+	if err != nil {
+		return item, nil, nil, err
+	}
+	return item, body, headers, nil
+}
+
+func (s *Service) BuildSignedAssetContentURL(assetID string) string {
+	expiresAt := time.Now().Add(15 * time.Minute).Unix()
+	sig := s.signAssetAccess(assetID, expiresAt)
+	values := url.Values{}
+	values.Set("expires", strconv.FormatInt(expiresAt, 10))
+	values.Set("sig", sig)
+	return fmt.Sprintf("/api/v1/menu/studio/assets/%s/content?%s", assetID, values.Encode())
+}
+
+func (s *Service) ValidateAssetAccessSignature(assetID string, expiresAt int64, sig string) bool {
+	if assetID == "" || sig == "" || expiresAt <= 0 || time.Now().Unix() > expiresAt {
+		return false
+	}
+	expected := s.signAssetAccess(assetID, expiresAt)
+	return hmac.Equal([]byte(expected), []byte(sig))
+}
+
+func (s *Service) signAssetAccess(assetID string, expiresAt int64) string {
+	secret := strings.TrimSpace(s.security.EncryptionKey)
+	if secret == "" {
+		secret = strings.TrimSpace(s.security.JWTSecret)
+	}
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(assetID))
+	mac.Write([]byte(":"))
+	mac.Write([]byte(strconv.FormatInt(expiresAt, 10)))
+	return hex.EncodeToString(mac.Sum(nil))
 }
 
 func (s *Service) RecordJobResults(userID, orgID, jobID string, input RecordJobResultsInput) (*GenerationJobSummary, error) {
@@ -830,7 +907,14 @@ func (s *Service) createActivity(userID, orgID, actionType, actionName, status s
 	})
 }
 
-func mapAsset(item *models.StudioAsset) *AssetSummary {
+func (s *Service) mapAsset(item *models.StudioAsset) *AssetSummary {
+	sourceURL := item.SourceURL
+	previewURL := item.PreviewURL
+	if item.StorageKey != "" {
+		protectedURL := s.BuildSignedAssetContentURL(item.ID)
+		sourceURL = protectedURL
+		previewURL = protectedURL
+	}
 	return &AssetSummary{
 		ID:         item.ID,
 		AssetType:  item.AssetType,
@@ -839,8 +923,8 @@ func mapAsset(item *models.StudioAsset) *AssetSummary {
 		FileName:   item.FileName,
 		MimeType:   item.MimeType,
 		StorageKey: item.StorageKey,
-		SourceURL:  item.SourceURL,
-		PreviewURL: item.PreviewURL,
+		SourceURL:  sourceURL,
+		PreviewURL: previewURL,
 		Width:      item.Width,
 		Height:     item.Height,
 		FileSize:   item.FileSize,
@@ -955,8 +1039,8 @@ func (s *Service) mapGenerationJob(item *models.GenerationJob, variants []models
 
 func (s *Service) mapGenerationJobCharge(job *models.GenerationJob, intent *models.StudioChargeIntent) *GenerationJobChargeSummary {
 	summary := &GenerationJobChargeSummary{
-		BillingEnabled:           s.cfg.BillingEnabled,
-		Billable:                 s.cfg.BillingEnabled && job.Mode != "batch",
+		BillingEnabled:           true,
+		Billable:                 job.Mode != "batch",
 		ChargePriorityAssetCodes: s.chargePriorityAssetCodes(),
 	}
 	if !summary.Billable {
@@ -1014,7 +1098,7 @@ func (s *Service) chargePriorityAssetCodes() []string {
 func (s *Service) mapAssetLibraryItem(userID, orgID string, item *models.StudioAsset, sharePost *models.SharePost) (*AssetLibraryItem, error) {
 	_ = userID
 	out := &AssetLibraryItem{
-		Asset:      *mapAsset(item),
+		Asset:      *s.mapAsset(item),
 		OriginRole: item.AssetType,
 		CanRefine:  item.Status == "ready" && (item.AssetType == "source" || item.AssetType == "generated"),
 		CanShare:   item.Status == "ready" && item.AssetType == "generated",
@@ -1060,7 +1144,7 @@ func (s *Service) mapJobHistoryItem(orgID string, job *GenerationJobSummary) (*J
 			}
 			return nil, err
 		}
-		out.SourceAssets = append(out.SourceAssets, *mapAsset(item))
+		out.SourceAssets = append(out.SourceAssets, *s.mapAsset(item))
 	}
 	for _, variant := range job.Variants {
 		if variant.AssetID == "" {
@@ -1073,7 +1157,7 @@ func (s *Service) mapJobHistoryItem(orgID string, job *GenerationJobSummary) (*J
 			}
 			return nil, err
 		}
-		mapped := mapAsset(asset)
+		mapped := s.mapAsset(asset)
 		out.ResultAssets = append(out.ResultAssets, *mapped)
 		if variant.IsSelected || variant.VariantID == job.SelectedVariantID {
 			out.SelectedAsset = mapped

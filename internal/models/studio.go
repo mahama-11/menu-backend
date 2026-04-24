@@ -51,8 +51,11 @@ type GenerationJob struct {
 	StageMessage      string     `gorm:"type:text" json:"stage_message"`
 	Provider          string     `gorm:"type:varchar(64);index;not null" json:"provider"`
 	ProviderJobID     string     `gorm:"type:varchar(128);index" json:"provider_job_id"`
+	RuntimeJobID      string     `gorm:"type:varchar(64);index" json:"runtime_job_id"`
+	ChargeSessionID   string     `gorm:"type:varchar(64);index" json:"charge_session_id"`
 	IdempotencyKey    *string    `gorm:"type:varchar(128);uniqueIndex:idx_generation_job_idempotency,priority:3" json:"idempotency_key,omitempty"`
 	StylePresetID     string     `gorm:"type:varchar(64);index" json:"style_preset_id"`
+	Prompt            string     `gorm:"type:text" json:"prompt"`
 	ParentJobID       string     `gorm:"type:varchar(64);index" json:"parent_job_id"`
 	BatchRootID       string     `gorm:"type:varchar(64);index" json:"batch_root_id"`
 	ParentVariantID   string     `gorm:"type:varchar(64);index" json:"parent_variant_id"`
@@ -67,6 +70,7 @@ type GenerationJob struct {
 	ErrorCode         string     `gorm:"type:varchar(64)" json:"error_code"`
 	ErrorMessage      string     `gorm:"type:text" json:"error_message"`
 	SelectedVariantID string     `gorm:"type:varchar(64);index" json:"selected_variant_id"`
+	RouteSnapshot     string     `gorm:"type:text" json:"route_snapshot"`
 	Metadata          string     `gorm:"type:text" json:"metadata"`
 	AttemptCount      int        `gorm:"not null;default:0" json:"attempt_count"`
 	MaxAttempts       int        `gorm:"not null;default:3" json:"max_attempts"`
@@ -107,6 +111,7 @@ type StudioChargeIntent struct {
 	FinalUnits        int64      `json:"final_units"`
 	ReservationID     string     `gorm:"type:varchar(64);index" json:"reservation_id"`
 	ReservationKey    string     `gorm:"type:varchar(128);uniqueIndex;not null" json:"reservation_key"`
+	ChargeSessionID   string     `gorm:"type:varchar(64);index" json:"charge_session_id"`
 	FinalizationID    string     `gorm:"type:varchar(128);uniqueIndex" json:"finalization_id"`
 	EventID           string     `gorm:"type:varchar(128);uniqueIndex;not null" json:"event_id"`
 	SettlementID      string     `gorm:"type:varchar(64);index" json:"settlement_id"`
@@ -115,6 +120,7 @@ type StudioChargeIntent struct {
 	Status            string     `gorm:"type:varchar(32);index;not null" json:"status"`
 	FailureCode       string     `gorm:"type:varchar(64)" json:"failure_code"`
 	FailureMessage    string     `gorm:"type:text" json:"failure_message"`
+	RouteSnapshot     string     `gorm:"type:text" json:"route_snapshot"`
 	Metadata          string     `gorm:"type:text" json:"metadata"`
 	ReservedAt        *time.Time `json:"reserved_at,omitempty"`
 	FinalizedAt       *time.Time `json:"finalized_at,omitempty"`

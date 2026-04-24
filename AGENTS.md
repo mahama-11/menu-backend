@@ -33,3 +33,4 @@ It should host:
 - [**OpenAPI README**](docs/openapi/README.md): Swagger/OpenAPI generation entry for frontend-facing Menu APIs.
 - [**Service Boundary**](docs/architecture/SERVICE_BOUNDARY.md): What belongs here versus the platform service.
 - [**Authz Model**](docs/architecture/AUTHZ_MODEL.md): Product-owned authorization model and platform-role mapping strategy.
+- [**Channel Platform Integration**](docs/architecture/CHANNEL_PLATFORM_INTEGRATION.md): Menu-side integration boundary for channel binding, charge reporting, refund reporting, and product aggregation APIs.

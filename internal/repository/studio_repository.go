@@ -82,6 +82,14 @@ func (r *StudioRepository) FindAssetByID(orgID, assetID string) (*models.StudioA
 	return &item, nil
 }
 
+func (r *StudioRepository) FindAssetByIDGlobal(assetID string) (*models.StudioAsset, error) {
+	var item models.StudioAsset
+	if err := r.db.Where("id = ?", assetID).First(&item).Error; err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
 func (r *StudioRepository) CreateStylePreset(item *models.StylePreset) error {
 	if item.ID == "" {
 		item.ID = buildStudioID("style")
@@ -205,6 +213,7 @@ func (r *StudioRepository) CountActiveJobsForUser(orgID, userID string) (int64, 
 	err := r.db.Model(&models.GenerationJob{}).
 		Where("organization_id = ? AND user_id = ? AND status IN ?", orgID, userID, []string{"queued", "processing"}).
 		Where("batch_root_id != '' OR mode != ?", "batch").
+		Where("NOT EXISTS (SELECT 1 FROM menu_studio_charge_intents sci WHERE sci.job_id = menu_generation_jobs.id AND sci.status = ?)", "failed_need_reconcile").
 		Count(&count).Error
 	return count, err
 }
@@ -214,6 +223,7 @@ func (r *StudioRepository) CountActiveJobsForOrg(orgID string) (int64, error) {
 	err := r.db.Model(&models.GenerationJob{}).
 		Where("organization_id = ? AND status IN ?", orgID, []string{"queued", "processing"}).
 		Where("batch_root_id != '' OR mode != ?", "batch").
+		Where("NOT EXISTS (SELECT 1 FROM menu_studio_charge_intents sci WHERE sci.job_id = menu_generation_jobs.id AND sci.status = ?)", "failed_need_reconcile").
 		Count(&count).Error
 	return count, err
 }
