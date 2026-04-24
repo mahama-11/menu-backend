@@ -32,9 +32,15 @@ Important fields:
 - `asset_type`: `source | generated | mask | reference`
 - `source_type`: `upload | import | generated`
 - `status`
+- `storage_key`
 - `source_url`
 - `preview_url`
 - `metadata`
+
+Important access rule:
+
+- For platform-stored assets, frontend should treat `source_url` / `preview_url` as Menu-owned signed content routes.
+- Browser clients should not assume a public `/storage/*` path exists on platform.
 
 ### 2.2 StylePreset
 
@@ -69,11 +75,13 @@ Important fields:
 
 - `job_id`
 - `mode`: `single | batch | variation | refinement`
+- `input_mode`: `text_to_image | image_to_image`
 - `status`
 - `stage`
 - `stage_message`
 - `provider`
 - `source_asset_ids[]`
+- `params_snapshot.prompt` when text-driven generation is used
 - `style_preset_id`
 - `requested_variants`
 - `progress`
@@ -88,7 +96,6 @@ Important fields:
 
 Important fields:
 
-- `billing_enabled`
 - `billable`
 - `charge_mode`
 - `resource_type`
@@ -206,6 +213,34 @@ These APIs are important for frontend commercial UX around Studio:
 - `GET /api/v1/menu/share/posts`
 - `POST /api/v1/menu/share/posts`
 - `GET /api/v1/menu/share/posts/:shareID`
+- `GET /api/v1/menu/share/public/:token`
+- `GET /api/v1/menu/share/public`
+- `POST /api/v1/menu/share/public/:token/view`
+- `GET /api/v1/menu/share/me/favorites`
+- `GET /api/v1/menu/share/posts/:shareID/engagement`
+- `POST /api/v1/menu/share/posts/:shareID/like`
+- `POST /api/v1/menu/share/posts/:shareID/favorite`
+
+## 4.4 Share Domain Boundary
+
+`share/posts` is the product sharing boundary for Studio outputs.
+
+The important rule is:
+
+- `StudioAsset` remains the source-of-truth media object.
+- `SharePost` is a publishable product object built on top of an asset.
+- likes / favorites / views belong to `SharePost`, not to `StudioAsset`.
+
+This keeps social-style engagement, visibility, and share copy from polluting the asset truth model.
+
+Recommended frontend layering:
+
+1. create or list `share/posts` inside authenticated product pages
+2. use `GET /share/public` as the product-owned public feed for discovery
+3. use `GET /share/me/favorites` as the authenticated saved-view for internal re-engagement
+4. open public share pages through `share_url`
+5. use browser-native share / copy-link / download as the first universal distribution path
+6. treat external platform publishing as adapters layered on top of `SharePost`, not as fields inside `StudioAsset`
 
 ## 5. Frontend Flow Guidance
 
@@ -213,14 +248,23 @@ These APIs are important for frontend commercial UX around Studio:
 
 Recommended flow:
 
-1. register source asset
-2. load style presets
-3. load wallet summary
-4. create generation job
-5. route to job detail page
+1. if `image_to_image`, register source asset
+2. if `text_to_image`, collect prompt text first
+3. load style presets
+4. load wallet summary
+5. create generation job
 6. poll `GET /studio/jobs/:jobID`
 7. show variants when completed
 8. call `select-variant` for final choice
+
+Current backend truth for source/result media is:
+
+- source uploads are first stored through platform storage and persisted by `storage_key`
+- runtime/provider input is derived from stored bytes instead of relying on a public asset URL round-trip
+- generated result assets are imported back into platform storage before Menu records them
+- browser-facing asset access should flow through signed Menu content URLs
+
+`/studio` is now treated as an authenticated product workspace. Frontend should redirect unauthenticated users to `/login` before attempting protected Studio APIs.
 
 For retrieval UX, frontend should also use:
 
@@ -286,6 +330,8 @@ Recommended job refresh strategy:
   - `status=completed`
   - `status=failed`
   - `status=canceled`
+- stop polling after repeated transport failures as well; frontend should not retry forever on `GET /studio/jobs/:jobID`
+- when repeated polling fails, surface a recoverable sync error and require explicit user refresh / retry
 
 Optional optimization later:
 
