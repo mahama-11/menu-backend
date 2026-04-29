@@ -4,6 +4,9 @@ import (
 	"testing"
 
 	"menu-service/internal/config"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
 )
 
 func TestValidateAutoMigratePolicy(t *testing.T) {
@@ -71,5 +74,28 @@ func TestValidateAutoMigratePolicy(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 		})
+	}
+}
+
+func TestRunSchemaBootstrapCreatesCommercialTables(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+		NamingStrategy: menuNamingStrategy{NamingStrategy: schema.NamingStrategy{TablePrefix: "menu_"}},
+	})
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+
+	if err := RunSchemaBootstrap(db, "menu_"); err != nil {
+		t.Fatalf("RunSchemaBootstrap() error = %v", err)
+	}
+
+	for _, table := range []string{
+		"menu_commercial_orders",
+		"menu_commercial_payments",
+		"menu_commercial_fulfillments",
+	} {
+		if !db.Migrator().HasTable(table) {
+			t.Fatalf("expected table %s to exist after bootstrap", table)
+		}
 	}
 }

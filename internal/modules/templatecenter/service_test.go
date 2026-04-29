@@ -229,6 +229,18 @@ func TestTemplateCenterUsesPlatformProjectionForBusinessFlow(t *testing.T) {
 					"metadata": map[string]any{"managed_source": "platform_projection"},
 				},
 			})
+		case "/internal/v1/controls/capability/resolve":
+			writePlatformEnvelope(map[string]any{
+				"product_code":          "menu",
+				"billing_subject_type":  "organization",
+				"billing_subject_id":    "org-1",
+				"capability_code":       "template_scope",
+				"grant_value":           "official_templates",
+				"source":                "test",
+				"matched_policy_id":     "policy-test",
+				"matched_grant_scope":   "organization",
+				"matched_grant_subject": "org-1",
+			})
 		default:
 			http.NotFound(w, r)
 		}
@@ -248,6 +260,17 @@ func TestTemplateCenterUsesPlatformProjectionForBusinessFlow(t *testing.T) {
 	}
 	if len(items) != 1 || items[0].TemplateID != "TPL-PLATFORM-001" {
 		t.Fatalf("unexpected platform items: %+v", items)
+	}
+	if items[0].Locked {
+		t.Fatalf("expected organization capability to unlock official template: %+v", items[0])
+	}
+
+	publicItems, err := service.ListCatalogs("user-1", "", ListCatalogInput{Plan: "basic"})
+	if err != nil {
+		t.Fatalf("ListCatalogs public fallback: %v", err)
+	}
+	if len(publicItems) != 1 || !publicItems[0].Locked {
+		t.Fatalf("expected public basic fallback to stay locked: %+v", publicItems)
 	}
 
 	detail, err := service.GetCatalogDetail("user-1", "org-1", "TPL-PLATFORM-001", "pro")

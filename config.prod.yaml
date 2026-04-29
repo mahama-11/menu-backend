@@ -64,7 +64,7 @@ monitoring:
 
 studio:
   product_code: "menu"
-  resource_type: "credits"
+  resource_type: "quota"
   single_billable_item: "menu.render.call"
   refinement_billable_item: "menu.render.call"
   variation_billable_item: "menu.render.call"

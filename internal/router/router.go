@@ -56,8 +56,8 @@ func New(cfg config.Config, platformClient *platform.Client, authHandler *auth.H
 		v1.POST("/share/public/:token/view", shareHandler.RecordPublicView)
 		v1.GET("/commercial/offerings", userHandler.GetCommercialOfferings)
 		v1.GET("/template-center/meta", templateHandler.Meta)
-		v1.GET("/template-center/catalog", templateHandler.ListCatalog)
-		v1.GET("/template-center/catalog/:templateID", templateHandler.Detail)
+		v1.GET("/template-center/catalog", middleware.OptionalPlatformJWTAuth(cfg.Platform.JWTSecret), templateHandler.ListCatalog)
+		v1.GET("/template-center/catalog/:templateID", middleware.OptionalPlatformJWTAuth(cfg.Platform.JWTSecret), templateHandler.Detail)
 	}
 
 	protected := v1.Group("")
