@@ -13,6 +13,7 @@ import (
 	referral "menu-service/internal/modules/referral"
 	share "menu-service/internal/modules/share"
 	studio "menu-service/internal/modules/studio"
+	templatecenter "menu-service/internal/modules/templatecenter"
 	user "menu-service/internal/modules/user"
 	"menu-service/internal/platform"
 	"menu-service/internal/repository"
@@ -62,22 +63,28 @@ func New(configFile string) (*App, error) {
 	}
 	authzRepo := repository.NewAuthzRepository(db)
 	userRepo := repository.NewUserRepository(db)
+	commercialRepo := repository.NewCommercialRepository(db)
 	auditRepo := repository.NewAuditRepository(db)
 	studioRepo := repository.NewStudioRepository(db)
 	shareRepo := repository.NewShareRepository(db)
+	templateRepo := repository.NewTemplateCenterRepository(db)
 	auditService := audit.NewService(auditRepo)
 	authzService := authz.NewService(authzRepo, platformClient)
 	authService := auth.NewService(platformClient, userRepo, authzService, cfg.App)
-	userService := user.NewService(userRepo, studioRepo, platformClient, authService, auditService)
+	userService := user.NewService(userRepo, commercialRepo, studioRepo, platformClient, authService, auditService)
 	channelService := channel.NewService(platformClient)
 	referralService := referral.NewService(platformClient, cfg.App)
-	studioService := studio.NewService(studioRepo, shareRepo, userRepo, auditService, platformClient, cfg.App, cfg.Studio, cfg.Security)
+	studioService := studio.NewService(studioRepo, templateRepo, shareRepo, userRepo, auditService, platformClient, cfg.App, cfg.Studio, cfg.Security)
 	shareService := share.NewService(shareRepo, studioRepo, cfg.App)
+	templateService := templatecenter.NewService(templateRepo, studioRepo, auditService, platformClient)
 	if bootstrapErr := authzService.Bootstrap(); bootstrapErr != nil {
 		return nil, fmt.Errorf("bootstrap menu authz: %w", bootstrapErr)
 	}
 	if referralBootstrapErr := referralService.Bootstrap(); referralBootstrapErr != nil {
 		return nil, fmt.Errorf("bootstrap menu referral: %w", referralBootstrapErr)
+	}
+	if templateBootstrapErr := templateService.Bootstrap(); templateBootstrapErr != nil {
+		return nil, fmt.Errorf("bootstrap menu template center: %w", templateBootstrapErr)
 	}
 	app := &App{Config: *cfg, Platform: platformClient, DB: db, Redis: redisClient, Shutdown: func(ctx context.Context) error {
 		if shutdown != nil {
@@ -85,7 +92,7 @@ func New(configFile string) (*App, error) {
 		}
 		return nil
 	}}
-	app.Router = router.New(*cfg, platformClient, auth.NewHandler(authService, auditService), user.NewHandler(userService, auditService), authz.NewHandler(authzService), channel.NewHandler(channelService), referral.NewHandler(referralService, auditService), studio.NewHandler(studioService, auditService), share.NewHandler(shareService, auditService), authzService)
+	app.Router = router.New(*cfg, platformClient, auth.NewHandler(authService, auditService), user.NewHandler(userService, auditService), authz.NewHandler(authzService), channel.NewHandler(channelService), referral.NewHandler(referralService, auditService), studio.NewHandler(studioService, auditService), templatecenter.NewHandler(templateService, auditService), share.NewHandler(shareService, auditService), authzService)
 	return app, nil
 }
 
@@ -99,9 +106,6 @@ func validateStudioConfig(appCfg config.AppConfig, cfg config.StudioConfig) erro
 	}
 	if cfg.SingleBillableItem == "" || cfg.RefinementBillableItem == "" || cfg.VariationBillableItem == "" {
 		return fmt.Errorf("studio billable items are required")
-	}
-	if cfg.DefaultProvider == "" {
-		return fmt.Errorf("studio.default_provider is required")
 	}
 	return nil
 }

@@ -26,6 +26,9 @@ type StylePreset struct {
 	ID               string    `gorm:"type:varchar(64);primaryKey" json:"id"`
 	OrganizationID   string    `gorm:"type:varchar(64);index:idx_style_preset_org_visibility,priority:1;not null" json:"organization_id"`
 	CreatedByUserID  string    `gorm:"type:varchar(64);index;not null" json:"created_by_user_id"`
+	SourceType       string    `gorm:"type:varchar(32);index" json:"source_type"`
+	SourceCatalogID  string    `gorm:"type:varchar(64);index" json:"source_catalog_id"`
+	SourceVersionID  string    `gorm:"type:varchar(64);index" json:"source_version_id"`
 	Name             string    `gorm:"type:varchar(128);index;not null" json:"name"`
 	Description      string    `gorm:"type:text" json:"description"`
 	Visibility       string    `gorm:"type:varchar(32);index:idx_style_preset_org_visibility,priority:2;not null" json:"visibility"`
@@ -98,33 +101,33 @@ type GenerationVariant struct {
 }
 
 type StudioChargeIntent struct {
-	ID                string     `gorm:"type:varchar(64);primaryKey" json:"id"`
-	JobID             string     `gorm:"type:varchar(64);uniqueIndex;not null" json:"job_id"`
-	BatchRootID       string     `gorm:"type:varchar(64);index" json:"batch_root_id"`
-	UserID            string     `gorm:"type:varchar(64);index;not null" json:"user_id"`
-	OrganizationID    string     `gorm:"type:varchar(64);index;not null" json:"organization_id"`
-	ProductCode       string     `gorm:"type:varchar(64);index;not null" json:"product_code"`
-	ChargeMode        string     `gorm:"type:varchar(32);index;not null" json:"charge_mode"`
-	ResourceType      string     `gorm:"type:varchar(32);index;not null" json:"resource_type"`
-	BillableItemCode  string     `gorm:"type:varchar(128);index;not null" json:"billable_item_code"`
-	EstimatedUnits    int64      `json:"estimated_units"`
-	FinalUnits        int64      `json:"final_units"`
-	ReservationID     string     `gorm:"type:varchar(64);index" json:"reservation_id"`
-	ReservationKey    string     `gorm:"type:varchar(128);uniqueIndex;not null" json:"reservation_key"`
-	ChargeSessionID   string     `gorm:"type:varchar(64);index" json:"charge_session_id"`
-	FinalizationID    string     `gorm:"type:varchar(128);uniqueIndex" json:"finalization_id"`
-	EventID           string     `gorm:"type:varchar(128);uniqueIndex;not null" json:"event_id"`
-	SettlementID      string     `gorm:"type:varchar(64);index" json:"settlement_id"`
-	Provider          string     `gorm:"type:varchar(64);index" json:"provider"`
-	ProviderJobID     string     `gorm:"type:varchar(128);index" json:"provider_job_id"`
-	Status            string     `gorm:"type:varchar(32);index;not null" json:"status"`
-	FailureCode       string     `gorm:"type:varchar(64)" json:"failure_code"`
-	FailureMessage    string     `gorm:"type:text" json:"failure_message"`
-	RouteSnapshot     string     `gorm:"type:text" json:"route_snapshot"`
-	Metadata          string     `gorm:"type:text" json:"metadata"`
-	ReservedAt        *time.Time `json:"reserved_at,omitempty"`
-	FinalizedAt       *time.Time `json:"finalized_at,omitempty"`
-	ReleasedAt        *time.Time `json:"released_at,omitempty"`
-	CreatedAt         time.Time  `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt         time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
+	ID               string     `gorm:"type:varchar(64);primaryKey" json:"id"`
+	JobID            string     `gorm:"type:varchar(64);uniqueIndex;not null" json:"job_id"`
+	BatchRootID      string     `gorm:"type:varchar(64);index" json:"batch_root_id"`
+	UserID           string     `gorm:"type:varchar(64);index;not null" json:"user_id"`
+	OrganizationID   string     `gorm:"type:varchar(64);index;not null" json:"organization_id"`
+	ProductCode      string     `gorm:"type:varchar(64);index;not null" json:"product_code"`
+	ChargeMode       string     `gorm:"type:varchar(32);index;not null" json:"charge_mode"`
+	ResourceType     string     `gorm:"type:varchar(32);index;not null" json:"resource_type"`
+	BillableItemCode string     `gorm:"type:varchar(128);index;not null" json:"billable_item_code"`
+	EstimatedUnits   int64      `json:"estimated_units"`
+	FinalUnits       int64      `json:"final_units"`
+	ReservationID    string     `gorm:"type:varchar(64);index" json:"reservation_id"`
+	ReservationKey   string     `gorm:"type:varchar(128);uniqueIndex;not null" json:"reservation_key"`
+	ChargeSessionID  string     `gorm:"type:varchar(64);index" json:"charge_session_id"`
+	FinalizationID   string     `gorm:"type:varchar(128);uniqueIndex" json:"finalization_id"`
+	EventID          string     `gorm:"type:varchar(128);uniqueIndex;not null" json:"event_id"`
+	SettlementID     string     `gorm:"type:varchar(64);index" json:"settlement_id"`
+	Provider         string     `gorm:"type:varchar(64);index" json:"provider"`
+	ProviderJobID    string     `gorm:"type:varchar(128);index" json:"provider_job_id"`
+	Status           string     `gorm:"type:varchar(32);index;not null" json:"status"`
+	FailureCode      string     `gorm:"type:varchar(64)" json:"failure_code"`
+	FailureMessage   string     `gorm:"type:text" json:"failure_message"`
+	RouteSnapshot    string     `gorm:"type:text" json:"route_snapshot"`
+	Metadata         string     `gorm:"type:text" json:"metadata"`
+	ReservedAt       *time.Time `json:"reserved_at,omitempty"`
+	FinalizedAt      *time.Time `json:"finalized_at,omitempty"`
+	ReleasedAt       *time.Time `json:"released_at,omitempty"`
+	CreatedAt        time.Time  `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt        time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
 }

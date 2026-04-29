@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"menu-service/internal/config"
+	"menu-service/internal/models"
 	"menu-service/internal/storage"
 
 	"gorm.io/gorm"
@@ -37,6 +38,13 @@ func Steps(cfg config.DatabaseConfig) []Step {
 			Name:    "baseline_schema_bootstrap",
 			Up: func(db *gorm.DB) error {
 				return storage.RunSchemaBootstrap(db, cfg.TablePrefix)
+			},
+		},
+		{
+			Version: 202604170002,
+			Name:    "commercial_orders_bootstrap",
+			Up: func(db *gorm.DB) error {
+				return db.AutoMigrate(&models.CommercialOrder{}, &models.CommercialPayment{}, &models.CommercialFulfillment{})
 			},
 		},
 	}

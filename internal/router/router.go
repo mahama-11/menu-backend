@@ -9,6 +9,7 @@ import (
 	referral "menu-service/internal/modules/referral"
 	share "menu-service/internal/modules/share"
 	studio "menu-service/internal/modules/studio"
+	templatecenter "menu-service/internal/modules/templatecenter"
 	user "menu-service/internal/modules/user"
 	"menu-service/internal/platform"
 	"menu-service/pkg/response"
@@ -17,7 +18,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
-func New(cfg config.Config, platformClient *platform.Client, authHandler *auth.Handler, userHandler *user.Handler, authzHandler *authz.Handler, channelHandler *channel.Handler, referralHandler *referral.Handler, studioHandler *studio.Handler, shareHandler *share.Handler, authzService *authz.Service) *gin.Engine {
+func New(cfg config.Config, platformClient *platform.Client, authHandler *auth.Handler, userHandler *user.Handler, authzHandler *authz.Handler, channelHandler *channel.Handler, referralHandler *referral.Handler, studioHandler *studio.Handler, templateHandler *templatecenter.Handler, shareHandler *share.Handler, authzService *authz.Service) *gin.Engine {
 	gin.SetMode(cfg.GinMode)
 	r := gin.New()
 	serviceName := cfg.Monitoring.Tracing.ServiceName
@@ -48,11 +49,15 @@ func New(cfg config.Config, platformClient *platform.Client, authHandler *auth.H
 		v1.GET("/health", func(c *gin.Context) {
 			response.JSONSuccess(c, gin.H{"service": "menu-api", "status": "ok"})
 		})
-		v1.GET("/studio/assets/:assetID/content", studioHandler.GetAssetContent)
+		v1.GET("/studio/assets/:assetID/content", middleware.OptionalPlatformJWTAuth(cfg.Platform.JWTSecret), studioHandler.GetAssetContent)
 		v1.GET("/referrals/codes/:code/resolve", referralHandler.ResolveCode)
 		v1.GET("/share/public", shareHandler.ListPublicPosts)
 		v1.GET("/share/public/:token", shareHandler.GetPublicPost)
 		v1.POST("/share/public/:token/view", shareHandler.RecordPublicView)
+		v1.GET("/commercial/offerings", userHandler.GetCommercialOfferings)
+		v1.GET("/template-center/meta", templateHandler.Meta)
+		v1.GET("/template-center/catalog", templateHandler.ListCatalog)
+		v1.GET("/template-center/catalog/:templateID", templateHandler.Detail)
 	}
 
 	protected := v1.Group("")
@@ -60,11 +65,18 @@ func New(cfg config.Config, platformClient *platform.Client, authHandler *auth.H
 	{
 		protected.GET("/user/credits", userHandler.GetCredits)
 		protected.GET("/user/wallet-summary", userHandler.GetWalletSummary)
+		protected.GET("/user/quota-summary", userHandler.GetQuotaSummary)
 		protected.GET("/user/wallet-history", userHandler.GetWalletHistory)
 		protected.GET("/user/audit-history", middleware.RequireMenuPermission(authzService, "menu.audit.read"), userHandler.GetAuditHistory)
 		protected.GET("/user/profile", userHandler.GetProfile)
 		protected.PATCH("/user/profile", userHandler.UpdateProfile)
 		protected.GET("/user/activities", userHandler.ListActivities)
+		protected.POST("/commercial/orders", userHandler.CreateCommercialOrder)
+		protected.GET("/commercial/orders", userHandler.ListCommercialOrders)
+		protected.GET("/commercial/orders/:orderID", userHandler.GetCommercialOrder)
+		protected.POST("/commercial/orders/:orderID/confirm-payment", userHandler.ConfirmCommercialOrderPayment)
+		protected.POST("/admin/commercial/assign-package", middleware.RequireMenuPermission(authzService, "menu.commercial.manage"), userHandler.AssignCommercialPackage)
+		protected.POST("/admin/commercial/simulate-consumption", middleware.RequireMenuPermission(authzService, "menu.commercial.manage"), userHandler.SimulateCommercialConsumption)
 		protected.GET("/studio/assets", middleware.RequireMenuPermission(authzService, "menu.asset.read"), studioHandler.ListAssets)
 		protected.GET("/studio/library/assets", middleware.RequireMenuPermission(authzService, "menu.asset.read"), studioHandler.AssetLibrary)
 		protected.POST("/studio/assets", middleware.RequireMenuPermission(authzService, "menu.asset.upload"), studioHandler.RegisterAsset)
@@ -72,6 +84,11 @@ func New(cfg config.Config, platformClient *platform.Client, authHandler *auth.H
 		protected.POST("/studio/styles", middleware.RequireMenuPermission(authzService, "menu.template.manage"), studioHandler.CreateStylePreset)
 		protected.GET("/studio/styles/:styleID", middleware.RequireMenuPermission(authzService, "menu.template.read"), studioHandler.GetStylePreset)
 		protected.POST("/studio/styles/:styleID/fork", middleware.RequireMenuPermission(authzService, "menu.template.manage"), studioHandler.ForkStylePreset)
+		protected.POST("/template-center/catalog/:templateID/use", middleware.RequireMenuPermission(authzService, "menu.template.read"), templateHandler.Use)
+		protected.POST("/template-center/catalog/:templateID/copy-to-my-templates", middleware.RequireMenuPermission(authzService, "menu.template.manage"), templateHandler.CopyToMyTemplates)
+		protected.GET("/template-center/favorites", middleware.RequireMenuPermission(authzService, "menu.template.read"), templateHandler.ListFavorites)
+		protected.POST("/template-center/favorites/:templateID", middleware.RequireMenuPermission(authzService, "menu.template.read"), templateHandler.SetFavorite)
+		protected.DELETE("/template-center/favorites/:templateID", middleware.RequireMenuPermission(authzService, "menu.template.read"), templateHandler.RemoveFavorite)
 		protected.GET("/studio/jobs", middleware.RequireMenuPermission(authzService, "menu.job.read"), studioHandler.ListGenerationJobs)
 		protected.GET("/studio/history/jobs", middleware.RequireMenuPermission(authzService, "menu.job.read"), studioHandler.JobHistory)
 		protected.POST("/studio/jobs", middleware.RequireMenuPermission(authzService, "menu.job.create"), studioHandler.CreateGenerationJob)

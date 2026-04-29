@@ -1,0 +1,924 @@
+{
+  "version": "parsed-from-markdown",
+  "meta": {
+    "cuisines": [
+      {
+        "id": "thai",
+        "label": "Thai Cuisine"
+      },
+      {
+        "id": "japanese",
+        "label": "Japanese Cuisine"
+      },
+      {
+        "id": "chinese",
+        "label": "Chinese Cuisine"
+      },
+      {
+        "id": "western",
+        "label": "Western Cuisine"
+      },
+      {
+        "id": "korean",
+        "label": "Korean Cuisine"
+      },
+      {
+        "id": "seafood",
+        "label": "Seafood"
+      },
+      {
+        "id": "dessert",
+        "label": "Dessert \u0026 Bakery"
+      },
+      {
+        "id": "beverage",
+        "label": "Beverages"
+      }
+    ],
+    "dish_types": [
+      {
+        "id": "signature",
+        "label": "招牌主菜",
+        "description": "绿咖喱、寿司、北京烤鸭"
+      },
+      {
+        "id": "appetizer",
+        "label": "前菜小食",
+        "description": "春卷、鸡翅"
+      },
+      {
+        "id": "soup",
+        "label": "汤类",
+        "description": "冬阴功、米线"
+      },
+      {
+        "id": "salad",
+        "label": "沙拉凉拌",
+        "description": "酸木瓜沙拉、凉拌海鲜"
+      },
+      {
+        "id": "grill",
+        "label": "烤类串类",
+        "description": "沙爹、韩式烤肉"
+      },
+      {
+        "id": "rice_noodle",
+        "label": "饭面主食",
+        "description": "拉面、炒饭"
+      },
+      {
+        "id": "dessert",
+        "label": "甜品糕点",
+        "description": "芒果糯米饭、蛋糕"
+      },
+      {
+        "id": "drink",
+        "label": "饮品咖啡",
+        "description": "泰式奶茶、冰咖啡"
+      },
+      {
+        "id": "set_meal",
+        "label": "套餐组合",
+        "description": "情人节套餐、海鲜拼盘"
+      },
+      {
+        "id": "seasonal",
+        "label": "季节限定",
+        "description": "芒果季特供"
+      }
+    ],
+    "platforms": [
+      {
+        "id": "instagram_feed",
+        "label": "Instagram Feed",
+        "width": 1080,
+        "height": 1080,
+        "ratio": "1:1",
+        "format": "jpg"
+      },
+      {
+        "id": "instagram_story",
+        "label": "Instagram Story",
+        "width": 1080,
+        "height": 1920,
+        "ratio": "9:16",
+        "format": "jpg"
+      },
+      {
+        "id": "instagram_reels",
+        "label": "Instagram Reels",
+        "width": 1080,
+        "height": 1920,
+        "ratio": "9:16",
+        "format": "jpg"
+      },
+      {
+        "id": "facebook_post",
+        "label": "Facebook Post",
+        "width": 1080,
+        "height": 1350,
+        "ratio": "4:5",
+        "format": "jpg"
+      },
+      {
+        "id": "facebook_cover",
+        "label": "Facebook Cover",
+        "width": 820,
+        "height": 312,
+        "ratio": "205:78",
+        "format": "jpg"
+      },
+      {
+        "id": "line_oa",
+        "label": "LINE OA",
+        "width": 1040,
+        "height": 1040,
+        "ratio": "1:1",
+        "format": "jpg"
+      },
+      {
+        "id": "tiktok",
+        "label": "TikTok",
+        "width": 1080,
+        "height": 1920,
+        "ratio": "9:16",
+        "format": "jpg"
+      },
+      {
+        "id": "grabfood",
+        "label": "GrabFood Banner",
+        "width": 1920,
+        "height": 1080,
+        "ratio": "16:9",
+        "format": "jpg"
+      },
+      {
+        "id": "foodpanda",
+        "label": "foodpanda Banner",
+        "width": 1920,
+        "height": 1080,
+        "ratio": "16:9",
+        "format": "jpg"
+      },
+      {
+        "id": "qr_menu",
+        "label": "QR Code Menu",
+        "width": 794,
+        "height": 1123,
+        "ratio": "A4",
+        "format": "png"
+      },
+      {
+        "id": "print_a4",
+        "label": "Print Flyer A4",
+        "width": 794,
+        "height": 1123,
+        "ratio": "A4",
+        "format": "png/pdf"
+      },
+      {
+        "id": "print_a5",
+        "label": "Print Flyer A5",
+        "width": 559,
+        "height": 794,
+        "ratio": "A5",
+        "format": "png"
+      }
+    ],
+    "moods": [
+      {
+        "id": "appetizing",
+        "label": "食欲感",
+        "description": "日常推广、外卖平台"
+      },
+      {
+        "id": "elegant",
+        "label": "精致感",
+        "description": "精品餐厅、菜单设计"
+      },
+      {
+        "id": "festive",
+        "label": "节日感",
+        "description": "情人节、新年、生日"
+      },
+      {
+        "id": "casual",
+        "label": "日常感",
+        "description": "TikTok、日常推文"
+      },
+      {
+        "id": "premium",
+        "label": "高端感",
+        "description": "Pro/Growth 套餐展示"
+      },
+      {
+        "id": "healthy",
+        "label": "健康感",
+        "description": "沙拉、低卡饮食推广"
+      },
+      {
+        "id": "spicy",
+        "label": "辣感",
+        "description": "辣味菜品突出卖点"
+      },
+      {
+        "id": "fresh",
+        "label": "清新感",
+        "description": "饮品、甜品、沙拉"
+      }
+    ],
+    "plans": [
+      {
+        "id": "basic",
+        "label": "Basic"
+      },
+      {
+        "id": "pro",
+        "label": "Pro"
+      },
+      {
+        "id": "growth",
+        "label": "Growth"
+      }
+    ]
+  },
+  "templates": [
+    {
+      "id": "TPL-TH-001",
+      "slug": "tpl-th-001",
+      "name": "冬阴功虾汤 × 冬阴功 × Instagram Feed",
+      "description": "Instagram Feed · LINE OA",
+      "cuisine": "thai",
+      "dish_type": "soup",
+      "plan": "basic",
+      "credits_cost": 10,
+      "platforms": [
+        "instagram_feed",
+        "line_oa"
+      ],
+      "moods": [
+        "appetizing",
+        "spicy"
+      ],
+      "tags": [
+        "appetizing",
+        "instagram_feed",
+        "line_oa",
+        "spicy",
+        "tpl_th_001",
+        "冬阴功___instagram_feed"
+      ],
+      "layout": "居中主图，底部文字，辣度徽章",
+      "lighting": "暖橙径向光晕",
+      "props": [
+        "青柠片",
+        "香茅",
+        "红辣椒"
+      ],
+      "prompt_templates": {
+        "en": "Tom yum goong close-up, steaming bowl, fresh prawns, lime, lemongrass, red chilies, warm orange back-lighting, premium Thai food photography, dark moody background"
+      },
+      "copy_templates": {},
+      "hashtags": {},
+      "export_specs": {},
+      "input_schema": {},
+      "execution_profile": {},
+      "examples": [],
+      "metadata": {
+        "source": "template_library_markdown"
+      }
+    },
+    {
+      "id": "TPL-TH-002",
+      "slug": "tpl-th-002",
+      "name": "泰式绿咖喱 × 绿咖喱 × Instagram Story 限时促销",
+      "description": "Instagram Story · TikTok",
+      "cuisine": "thai",
+      "dish_type": "signature",
+      "plan": "basic",
+      "credits_cost": 10,
+      "platforms": [
+        "instagram_story",
+        "tiktok"
+      ],
+      "moods": [
+        "appetizing",
+        "festive"
+      ],
+      "tags": [
+        "appetizing",
+        "festive",
+        "instagram_story",
+        "tiktok",
+        "tpl_th_002",
+        "绿咖喱___instagram_story_限时促销"
+      ],
+      "layout": "全屏竖版，顶部文字，限时徽章",
+      "lighting": "深绿渐变叠加",
+      "props": [
+        "柠檬叶",
+        "椰浆旋纹",
+        "泰式罗勒"
+      ],
+      "prompt_templates": {
+        "en": ""
+      },
+      "copy_templates": {},
+      "hashtags": {},
+      "export_specs": {},
+      "input_schema": {},
+      "execution_profile": {},
+      "examples": [],
+      "metadata": {
+        "source": "template_library_markdown"
+      }
+    },
+    {
+      "id": "TPL-TH-003",
+      "slug": "tpl-th-003",
+      "name": "芒果糯米饭 × 芒果糯米饭 × 季节限定套餐",
+      "description": "Instagram Feed · Facebook Post · LINE OA",
+      "cuisine": "thai",
+      "dish_type": "dessert",
+      "plan": "basic",
+      "credits_cost": 10,
+      "platforms": [
+        "facebook_post",
+        "instagram_feed",
+        "line_oa"
+      ],
+      "moods": [
+        "appetizing",
+        "festive",
+        "fresh"
+      ],
+      "tags": [
+        "appetizing",
+        "facebook_post",
+        "festive",
+        "fresh",
+        "instagram_feed",
+        "line_oa",
+        "tpl_th_003",
+        "芒果糯米饭___季节限定套餐"
+      ],
+      "layout": "对角分割，右侧文字",
+      "lighting": "柔金渐变",
+      "props": [
+        "芒果切片",
+        "椰浆淋面",
+        "芝麻粒",
+        "班兰叶"
+      ],
+      "prompt_templates": {
+        "en": ""
+      },
+      "copy_templates": {},
+      "hashtags": {},
+      "export_specs": {},
+      "input_schema": {},
+      "execution_profile": {},
+      "examples": [],
+      "metadata": {
+        "source": "template_library_markdown"
+      }
+    },
+    {
+      "id": "TPL-TH-004",
+      "slug": "tpl-th-004",
+      "name": "沙爹鸡肉串 × 沙爹鸡串 × GrabFood / foodpanda 外卖横幅",
+      "description": "GrabFood Banner · foodpanda Banner · Facebook Post",
+      "cuisine": "thai",
+      "dish_type": "grill",
+      "plan": "basic",
+      "credits_cost": 10,
+      "platforms": [
+        "facebook_post",
+        "foodpanda",
+        "grabfood"
+      ],
+      "moods": [
+        "appetizing",
+        "casual"
+      ],
+      "tags": [
+        "appetizing",
+        "casual",
+        "facebook_post",
+        "foodpanda_banner",
+        "grabfood_banner",
+        "tpl_th_004",
+        "沙爹鸡串___grabfood___foodpanda_外卖横幅"
+      ],
+      "layout": "横版 · 左图右文",
+      "lighting": "暖琥珀渐变",
+      "props": [
+        "花生酱碗",
+        "黄瓜小菜",
+        "炭烤烟气"
+      ],
+      "prompt_templates": {
+        "en": ""
+      },
+      "copy_templates": {},
+      "hashtags": {},
+      "export_specs": {},
+      "input_schema": {},
+      "execution_profile": {},
+      "examples": [],
+      "metadata": {
+        "source": "template_library_markdown"
+      }
+    },
+    {
+      "id": "TPL-TH-005",
+      "slug": "tpl-th-005",
+      "name": "泰式酸木瓜沙拉 × 酸木瓜沙拉 × TikTok 健康推广",
+      "description": "TikTok · Instagram Reels · Instagram Story",
+      "cuisine": "thai",
+      "dish_type": "salad",
+      "plan": "basic",
+      "credits_cost": 10,
+      "platforms": [
+        "instagram_reels",
+        "instagram_story",
+        "tiktok"
+      ],
+      "moods": [
+        "fresh",
+        "healthy",
+        "spicy"
+      ],
+      "tags": [
+        "fresh",
+        "healthy",
+        "instagram_reels",
+        "instagram_story",
+        "spicy",
+        "tiktok",
+        "tpl_th_005",
+        "酸木瓜沙拉___tiktok_健康推广"
+      ],
+      "layout": "全屏竖版，中心叠字",
+      "lighting": "霓虹绿边缘光",
+      "props": [
+        "木瓜丝",
+        "番茄",
+        "豇豆",
+        "花生",
+        "辣椒特写"
+      ],
+      "prompt_templates": {
+        "en": ""
+      },
+      "copy_templates": {},
+      "hashtags": {},
+      "export_specs": {},
+      "input_schema": {},
+      "execution_profile": {},
+      "examples": [],
+      "metadata": {
+        "source": "template_library_markdown"
+      }
+    },
+    {
+      "id": "TPL-JP-001",
+      "slug": "tpl-jp-001",
+      "name": "寿司拼盘 × 寿司拼盘 × 精致 Instagram",
+      "description": "Instagram Feed · LINE OA · Print A5",
+      "cuisine": "japanese",
+      "dish_type": "signature",
+      "plan": "pro",
+      "credits_cost": 10,
+      "platforms": [
+        "instagram_feed",
+        "line_oa",
+        "print_a5"
+      ],
+      "moods": [
+        "elegant",
+        "premium"
+      ],
+      "tags": [
+        "elegant",
+        "instagram_feed",
+        "line_oa",
+        "premium",
+        "print_a5",
+        "tpl_jp_001",
+        "寿司拼盘___精致_instagram"
+      ],
+      "layout": "俯拍，石板底",
+      "lighting": "柔白环境光",
+      "props": [
+        "石板",
+        "腌姜",
+        "山葵",
+        "酱油碟"
+      ],
+      "prompt_templates": {
+        "en": ""
+      },
+      "copy_templates": {},
+      "hashtags": {},
+      "export_specs": {},
+      "input_schema": {},
+      "execution_profile": {},
+      "examples": [],
+      "metadata": {
+        "source": "template_library_markdown"
+      }
+    },
+    {
+      "id": "TPL-JP-002",
+      "slug": "tpl-jp-002",
+      "name": "日式拉面 × 拉面 × Facebook 晚餐推广",
+      "description": "Facebook Post · Instagram Feed · GrabFood",
+      "cuisine": "japanese",
+      "dish_type": "rice_noodle",
+      "plan": "basic",
+      "credits_cost": 10,
+      "platforms": [
+        "facebook_post",
+        "grabfood",
+        "instagram_feed"
+      ],
+      "moods": [
+        "appetizing",
+        "casual"
+      ],
+      "tags": [
+        "appetizing",
+        "casual",
+        "facebook_post",
+        "grabfood",
+        "instagram_feed",
+        "tpl_jp_002",
+        "拉面___facebook_晚餐推广"
+      ],
+      "layout": "45度侧拍，顶部文字",
+      "lighting": "蒸汽雾效叠加",
+      "props": [
+        "溏心蛋",
+        "海苔",
+        "笋干",
+        "叉烧肉",
+        "热气"
+      ],
+      "prompt_templates": {
+        "en": ""
+      },
+      "copy_templates": {},
+      "hashtags": {},
+      "export_specs": {},
+      "input_schema": {},
+      "execution_profile": {},
+      "examples": [],
+      "metadata": {
+        "source": "template_library_markdown"
+      }
+    },
+    {
+      "id": "TPL-CN-001",
+      "slug": "tpl-cn-001",
+      "name": "北京烤鸭 × 北京烤鸭 × 高端餐厅",
+      "description": "Instagram Feed · Facebook Post · Print A4",
+      "cuisine": "chinese",
+      "dish_type": "signature",
+      "plan": "pro",
+      "credits_cost": 10,
+      "platforms": [
+        "facebook_post",
+        "instagram_feed",
+        "print_a4"
+      ],
+      "moods": [
+        "elegant",
+        "premium"
+      ],
+      "tags": [
+        "elegant",
+        "facebook_post",
+        "instagram_feed",
+        "premium",
+        "print_a4",
+        "tpl_cn_001",
+        "北京烤鸭___高端餐厅"
+      ],
+      "layout": "戏剧侧光，右下文字",
+      "lighting": "深红晕角",
+      "props": [
+        "薄饼",
+        "葱段",
+        "黄瓜条",
+        "海鲜酱",
+        "模糊红灯笼"
+      ],
+      "prompt_templates": {
+        "en": ""
+      },
+      "copy_templates": {},
+      "hashtags": {},
+      "export_specs": {},
+      "input_schema": {},
+      "execution_profile": {},
+      "examples": [],
+      "metadata": {
+        "source": "template_library_markdown"
+      }
+    },
+    {
+      "id": "TPL-WS-001",
+      "slug": "tpl-ws-001",
+      "name": "情人节牛排套餐 × 牛排 × 情人节礼遇套餐",
+      "description": "Instagram Story · Instagram Feed · LINE OA · Facebook Post",
+      "cuisine": "western",
+      "dish_type": "set_meal",
+      "plan": "pro",
+      "credits_cost": 15,
+      "platforms": [
+        "facebook_post",
+        "instagram_feed",
+        "instagram_story",
+        "line_oa"
+      ],
+      "moods": [
+        "elegant",
+        "festive",
+        "premium"
+      ],
+      "tags": [
+        "elegant",
+        "facebook_post",
+        "festive",
+        "instagram_feed",
+        "instagram_story",
+        "line_oa",
+        "premium",
+        "tpl_ws_001",
+        "牛排___情人节礼遇套餐"
+      ],
+      "layout": "烛光浪漫，居中卡片",
+      "lighting": "粉色玫瑰花瓣虚焦",
+      "props": [
+        "红玫瑰",
+        "烛光",
+        "红酒杯",
+        "心形装饰"
+      ],
+      "prompt_templates": {
+        "en": ""
+      },
+      "copy_templates": {},
+      "hashtags": {},
+      "export_specs": {},
+      "input_schema": {},
+      "execution_profile": {},
+      "examples": [],
+      "metadata": {
+        "source": "template_library_markdown"
+      }
+    },
+    {
+      "id": "TPL-KR-001",
+      "slug": "tpl-kr-001",
+      "name": "韩式烤肉 × 韩式烤肉 × TikTok 互动",
+      "description": "TikTok · Instagram Reels",
+      "cuisine": "korean",
+      "dish_type": "grill",
+      "plan": "basic",
+      "credits_cost": 10,
+      "platforms": [
+        "instagram_reels",
+        "tiktok"
+      ],
+      "moods": [
+        "casual",
+        "festive",
+        "spicy"
+      ],
+      "tags": [
+        "casual",
+        "festive",
+        "instagram_reels",
+        "spicy",
+        "tiktok",
+        "tpl_kr_001",
+        "韩式烤肉___tiktok_互动"
+      ],
+      "layout": "烤架动作镜头",
+      "lighting": "炭火余烬辉光",
+      "props": [
+        "炭火火焰",
+        "五花肉滋滋作响",
+        "芝麻叶",
+        "小菜组合"
+      ],
+      "prompt_templates": {
+        "en": ""
+      },
+      "copy_templates": {},
+      "hashtags": {},
+      "export_specs": {},
+      "input_schema": {},
+      "execution_profile": {},
+      "examples": [],
+      "metadata": {
+        "source": "template_library_markdown"
+      }
+    },
+    {
+      "id": "TPL-SF-001",
+      "slug": "tpl-sf-001",
+      "name": "豪华海鲜拼盘 × 豪华海鲜拼盘 × 节假日特供",
+      "description": "Instagram Feed · Facebook Post · Print A4 · QR Menu",
+      "cuisine": "seafood",
+      "dish_type": "set_meal",
+      "plan": "growth",
+      "credits_cost": 15,
+      "platforms": [
+        "facebook_post",
+        "instagram_feed",
+        "print_a4",
+        "qr_menu"
+      ],
+      "moods": [
+        "festive",
+        "premium"
+      ],
+      "tags": [
+        "facebook_post",
+        "festive",
+        "instagram_feed",
+        "premium",
+        "print_a4",
+        "qr_menu",
+        "tpl_sf_001",
+        "豪华海鲜拼盘___节假日特供"
+      ],
+      "layout": "俯拍丰盛感",
+      "lighting": "海洋蓝青渐变",
+      "props": [
+        "碎冰床",
+        "柠檬",
+        "龙虾",
+        "生蚝",
+        "虎虾",
+        "螃蟹"
+      ],
+      "prompt_templates": {
+        "en": ""
+      },
+      "copy_templates": {},
+      "hashtags": {},
+      "export_specs": {},
+      "input_schema": {},
+      "execution_profile": {},
+      "examples": [],
+      "metadata": {
+        "source": "template_library_markdown"
+      }
+    },
+    {
+      "id": "TPL-DS-001",
+      "slug": "tpl-ds-001",
+      "name": "泰式奶茶 × 泰式奶茶 × LINE OA / TikTok",
+      "description": "Instagram Story · LINE OA · TikTok",
+      "cuisine": "dessert",
+      "dish_type": "drink",
+      "plan": "basic",
+      "credits_cost": 10,
+      "platforms": [
+        "instagram_story",
+        "line_oa",
+        "tiktok"
+      ],
+      "moods": [
+        "appetizing",
+        "casual",
+        "fresh"
+      ],
+      "tags": [
+        "appetizing",
+        "casual",
+        "fresh",
+        "instagram_story",
+        "line_oa",
+        "tiktok",
+        "tpl_ds_001",
+        "泰式奶茶___line_oa___tiktok"
+      ],
+      "layout": "竖版产品精拍，左侧文字",
+      "lighting": "橙色暖虚焦背景",
+      "props": [
+        "透明杯",
+        "奶茶分层",
+        "吸管",
+        "冰块"
+      ],
+      "prompt_templates": {
+        "en": ""
+      },
+      "copy_templates": {},
+      "hashtags": {},
+      "export_specs": {},
+      "input_schema": {},
+      "execution_profile": {},
+      "examples": [],
+      "metadata": {
+        "source": "template_library_markdown"
+      }
+    },
+    {
+      "id": "TPL-DS-002",
+      "slug": "tpl-ds-002",
+      "name": "节庆蛋糕 × 节庆蛋糕 × 多平台",
+      "description": "Instagram Feed · Instagram Story · Facebook Post · LINE OA",
+      "cuisine": "dessert",
+      "dish_type": "dessert",
+      "plan": "basic",
+      "credits_cost": 10,
+      "platforms": [
+        "facebook_post",
+        "instagram_feed",
+        "instagram_story",
+        "line_oa"
+      ],
+      "moods": [
+        "elegant",
+        "festive"
+      ],
+      "tags": [
+        "elegant",
+        "facebook_post",
+        "festive",
+        "instagram_feed",
+        "instagram_story",
+        "line_oa",
+        "tpl_ds_002",
+        "节庆蛋糕___多平台"
+      ],
+      "layout": "居中主图 + 金色闪光",
+      "lighting": "金色彩纸虚焦",
+      "props": [
+        "生日蜡烛",
+        "奶油玫瑰花",
+        "新鲜浆果",
+        "金色彩纸"
+      ],
+      "prompt_templates": {
+        "en": ""
+      },
+      "copy_templates": {},
+      "hashtags": {},
+      "export_specs": {},
+      "input_schema": {},
+      "execution_profile": {},
+      "examples": [],
+      "metadata": {
+        "source": "template_library_markdown"
+      }
+    },
+    {
+      "id": "TPL-MENU-001",
+      "slug": "tpl-menu-001",
+      "name": "QR 数字菜单模板",
+      "description": "餐厅桌面 QR 扫码菜单 + 印刷菜单",
+      "cuisine": "dessert",
+      "dish_type": "set_meal",
+      "plan": "basic",
+      "credits_cost": 10,
+      "platforms": [
+        "print_a4",
+        "qr_menu"
+      ],
+      "moods": [
+        "elegant",
+        "premium"
+      ],
+      "tags": [
+        "elegant",
+        "premium",
+        "print_a4",
+        "qr_menu",
+        "qr_数字菜单模板",
+        "tpl_menu_001"
+      ],
+      "layout": "A4 菜单网格，分区展示",
+      "lighting": "",
+      "props": null,
+      "prompt_templates": {
+        "en": ""
+      },
+      "copy_templates": {},
+      "hashtags": {},
+      "export_specs": {},
+      "input_schema": {},
+      "execution_profile": {},
+      "examples": [],
+      "metadata": {
+        "source": "template_library_markdown"
+      }
+    }
+  ]
+}

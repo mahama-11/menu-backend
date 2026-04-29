@@ -106,6 +106,50 @@ type PlatformUserProfile struct {
 	Orgs            []PlatformOrganizationLite `json:"orgs"`
 }
 
+type PlatformTemplateCatalogItem struct {
+	TemplateRef    string         `json:"template_ref"`
+	ProductCode    string         `json:"product_code"`
+	TemplateID     string         `json:"template_id"`
+	Slug           string         `json:"slug"`
+	Name           string         `json:"name"`
+	Summary        string         `json:"summary"`
+	Status         string         `json:"status"`
+	CoverAssetURL  string         `json:"cover_asset_url"`
+	CoverAssetID   string         `json:"cover_asset_id"`
+	RecommendScore int            `json:"recommend_score"`
+	Tags           []string       `json:"tags"`
+	Platforms      []string       `json:"platforms"`
+	Series         string         `json:"series"`
+	CapabilityType string         `json:"capability_type"`
+	Modality       string         `json:"modality"`
+	Scope          string         `json:"scope"`
+	ManagedSource  string         `json:"managed_source"`
+	Raw            map[string]any `json:"raw"`
+}
+
+type PlatformTemplateCatalogResult struct {
+	Items  []PlatformTemplateCatalogItem `json:"items"`
+	Total  int                           `json:"total"`
+	Limit  int                           `json:"limit"`
+	Offset int                           `json:"offset"`
+}
+
+type PlatformTemplateCatalogDetail struct {
+	Item      PlatformTemplateCatalogItem `json:"item"`
+	Product   string                      `json:"product"`
+	DetailRaw map[string]any              `json:"detail_raw"`
+}
+
+type QuotaBalance struct {
+	BillingSubjectType string `json:"billing_subject_type"`
+	BillingSubjectID   string `json:"billing_subject_id"`
+	BillableItemCode   string `json:"billable_item_code"`
+	Granted            int64  `json:"granted"`
+	Consumed           int64  `json:"consumed"`
+	Reserved           int64  `json:"reserved"`
+	Available          int64  `json:"available"`
+}
+
 type UpdateUserProfileInput struct {
 	FullName  string `json:"full_name,omitempty"`
 	AvatarURL string `json:"avatar_url,omitempty"`
@@ -298,6 +342,228 @@ type AssetDefinition struct {
 	Metadata          string    `json:"metadata"`
 	CreatedAt         time.Time `json:"created_at"`
 	UpdatedAt         time.Time `json:"updated_at"`
+}
+
+type Product struct {
+	ID        string    `json:"id"`
+	Code      string    `json:"code"`
+	Name      string    `json:"name"`
+	Status    string    `json:"status"`
+	OwnerTeam string    `json:"owner_team"`
+	Metadata  string    `json:"metadata"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type SKU struct {
+	ID          string    `json:"id"`
+	ProductID   string    `json:"product_id"`
+	Code        string    `json:"code"`
+	Name        string    `json:"name"`
+	SKUType     string    `json:"sku_type"`
+	BillingMode string    `json:"billing_mode"`
+	Currency    string    `json:"currency"`
+	ListPrice   int64     `json:"list_price"`
+	Status      string    `json:"status"`
+	Metadata    string    `json:"metadata"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type CommercialPackage struct {
+	ID          string    `json:"id"`
+	ProductID   string    `json:"product_id"`
+	Code        string    `json:"code"`
+	Name        string    `json:"name"`
+	PackageType string    `json:"package_type"`
+	Status      string    `json:"status"`
+	Metadata    string    `json:"metadata"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type BillableItem struct {
+	ID              string    `json:"id"`
+	ProductID       string    `json:"product_id"`
+	Code            string    `json:"code"`
+	Name            string    `json:"name"`
+	MeterUnit       string    `json:"meter_unit"`
+	BillingScope    string    `json:"billing_scope"`
+	SettlementMode  string    `json:"settlement_mode"`
+	PricingBehavior string    `json:"pricing_behavior"`
+	Status          string    `json:"status"`
+	Metadata        string    `json:"metadata"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+type RateCard struct {
+	ID            string     `json:"id"`
+	ProductID     string     `json:"product_id"`
+	Code          string     `json:"code"`
+	TargetType    string     `json:"target_type"`
+	TargetID      string     `json:"target_id"`
+	PriceModel    string     `json:"price_model"`
+	Currency      string     `json:"currency"`
+	PriceConfig   string     `json:"price_config"`
+	EffectiveFrom *time.Time `json:"effective_from,omitempty"`
+	EffectiveTo   *time.Time `json:"effective_to,omitempty"`
+	Version       int        `json:"version"`
+	Status        string     `json:"status"`
+	Metadata      string     `json:"metadata"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
+}
+
+type AllowancePolicy struct {
+	ID                 string     `json:"id"`
+	ProductCode        string     `json:"product_code"`
+	BillingSubjectType string     `json:"billing_subject_type"`
+	BillingSubjectID   string     `json:"billing_subject_id"`
+	AssetCode          string     `json:"asset_code"`
+	Amount             int64      `json:"amount"`
+	ResetCycle         string     `json:"reset_cycle"`
+	Status             string     `json:"status"`
+	EffectiveFrom      *time.Time `json:"effective_from,omitempty"`
+	EffectiveTo        *time.Time `json:"effective_to,omitempty"`
+	Metadata           string     `json:"metadata"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
+}
+
+type QuotaGrantPolicy struct {
+	ID               string    `json:"id"`
+	ProductCode      string    `json:"product_code"`
+	PackageCode      string    `json:"package_code"`
+	BillableItemCode string    `json:"billable_item_code"`
+	GrantMode        string    `json:"grant_mode"`
+	Units            int64     `json:"units"`
+	ResetCycle       string    `json:"reset_cycle"`
+	Status           string    `json:"status"`
+	Metadata         string    `json:"metadata"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
+type PackageCapabilityPolicy struct {
+	ID             string    `json:"id"`
+	ProductCode    string    `json:"product_code"`
+	PackageCode    string    `json:"package_code"`
+	CapabilityCode string    `json:"capability_code"`
+	GrantValue     string    `json:"grant_value"`
+	Status         string    `json:"status"`
+	Metadata       string    `json:"metadata"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+type CapabilityGrant struct {
+	ID                 string     `json:"id"`
+	ProductCode        string     `json:"product_code"`
+	BillingSubjectType string     `json:"billing_subject_type"`
+	BillingSubjectID   string     `json:"billing_subject_id"`
+	CapabilityCode     string     `json:"capability_code"`
+	GrantValue         string     `json:"grant_value"`
+	SourceType         string     `json:"source_type"`
+	SourceID           string     `json:"source_id"`
+	Status             string     `json:"status"`
+	ExpiresAt          *time.Time `json:"expires_at,omitempty"`
+	Metadata           string     `json:"metadata"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
+}
+
+type ResolveCapabilityResult struct {
+	ProductCode        string           `json:"product_code"`
+	BillingSubjectType string           `json:"billing_subject_type"`
+	BillingSubjectID   string           `json:"billing_subject_id"`
+	CapabilityCode     string           `json:"capability_code"`
+	GrantValue         string           `json:"grant_value"`
+	Grant              *CapabilityGrant `json:"grant,omitempty"`
+}
+
+type OfferingsView struct {
+	Product           *Product            `json:"product"`
+	SKUs              []SKU               `json:"skus"`
+	Packages          []CommercialPackage `json:"packages"`
+	BillableItems     []BillableItem      `json:"billable_items"`
+	RateCards         []RateCard          `json:"rate_cards"`
+	AssetDefinitions  []AssetDefinition   `json:"asset_definitions"`
+	AllowancePolicies []AllowancePolicy   `json:"allowance_policies"`
+}
+
+type WalletBucket struct {
+	ID                 string     `json:"id"`
+	WalletAccountID    string     `json:"wallet_account_id"`
+	BillingSubjectType string     `json:"billing_subject_type"`
+	BillingSubjectID   string     `json:"billing_subject_id"`
+	AssetCode          string     `json:"asset_code"`
+	AssetType          string     `json:"asset_type"`
+	LifecycleType      string     `json:"lifecycle_type"`
+	SourceType         string     `json:"source_type"`
+	SourceID           string     `json:"source_id"`
+	CycleKey           string     `json:"cycle_key"`
+	Balance            int64      `json:"balance"`
+	ExpiresAt          *time.Time `json:"expires_at,omitempty"`
+	Status             string     `json:"status"`
+	Metadata           string     `json:"metadata"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
+}
+
+type PostWalletLedgerInput struct {
+	BillingSubjectType string `json:"billing_subject_type"`
+	BillingSubjectID   string `json:"billing_subject_id"`
+	AssetCode          string `json:"asset_code"`
+	AssetType          string `json:"asset_type,omitempty"`
+	Direction          string `json:"direction"`
+	Amount             int64  `json:"amount"`
+	Reason             string `json:"reason,omitempty"`
+	ReferenceType      string `json:"reference_type,omitempty"`
+	ReferenceID        string `json:"reference_id,omitempty"`
+	Status             string `json:"status,omitempty"`
+	Metadata           string `json:"metadata,omitempty"`
+	ExpiresAt          string `json:"expires_at,omitempty"`
+	CycleKey           string `json:"cycle_key,omitempty"`
+}
+
+type GrantCycleAllowanceInput struct {
+	BillingSubjectType string `json:"billing_subject_type"`
+	BillingSubjectID   string `json:"billing_subject_id"`
+	AssetCode          string `json:"asset_code"`
+	CycleKey           string `json:"cycle_key"`
+	Amount             int64  `json:"amount"`
+	Metadata           string `json:"metadata,omitempty"`
+}
+
+type GrantQuotaInput struct {
+	BillingSubjectType string `json:"billing_subject_type"`
+	BillingSubjectID   string `json:"billing_subject_id"`
+	BillableItemCode   string `json:"billable_item_code"`
+	Units              int64  `json:"units"`
+	Reason             string `json:"reason,omitempty"`
+	ReferenceID        string `json:"reference_id,omitempty"`
+}
+
+type GrantCapabilityInput struct {
+	ProductCode        string `json:"product_code"`
+	BillingSubjectType string `json:"billing_subject_type"`
+	BillingSubjectID   string `json:"billing_subject_id"`
+	CapabilityCode     string `json:"capability_code"`
+	GrantValue         string `json:"grant_value"`
+	SourceType         string `json:"source_type,omitempty"`
+	SourceID           string `json:"source_id,omitempty"`
+	Metadata           string `json:"metadata,omitempty"`
+}
+
+type postWalletLedgerResult struct {
+	Ledger  *WalletLedger  `json:"ledger"`
+	Account *WalletAccount `json:"account"`
+}
+
+type grantCycleAllowanceResult struct {
+	Bucket  *WalletBucket  `json:"bucket"`
+	Account *WalletAccount `json:"account"`
 }
 
 type WalletLedger struct {
@@ -825,6 +1091,60 @@ func (c *Client) ResolveCommercialRoute(input ResolveRouteInput) (*ResolveRouteR
 	return doPost[ResolveRouteInput, ResolveRouteResult](c, "/commercial/route/resolve", input)
 }
 
+func (c *Client) GetCatalogOfferings(productCode string) (*OfferingsView, error) {
+	return doGet[OfferingsView](c, withQuery("/catalog/offerings", map[string]string{
+		"product_code": productCode,
+	}))
+}
+
+func (c *Client) ListQuotaGrantPolicies(productCode, packageCode string) ([]QuotaGrantPolicy, error) {
+	out, err := doGet[platformItemsResponse[QuotaGrantPolicy]](c, withQuery("/controls/quota/policies", map[string]string{
+		"product_code": productCode,
+		"package_code": packageCode,
+	}))
+	if err != nil {
+		return nil, err
+	}
+	return out.Items, nil
+}
+
+func (c *Client) ListPackageCapabilityPolicies(productCode, packageCode string) ([]PackageCapabilityPolicy, error) {
+	out, err := doGet[platformItemsResponse[PackageCapabilityPolicy]](c, withQuery("/controls/capability/policies", map[string]string{
+		"product_code": productCode,
+		"package_code": packageCode,
+	}))
+	if err != nil {
+		return nil, err
+	}
+	return out.Items, nil
+}
+
+func (c *Client) GrantQuota(input GrantQuotaInput) error {
+	_, err := doPost[GrantQuotaInput, map[string]any](c, "/controls/quota/grants", input)
+	return err
+}
+
+func (c *Client) GetQuotaBalance(subjectType, subjectID, billableItemCode string) (*QuotaBalance, error) {
+	return doGet[QuotaBalance](c, withQuery("/controls/quota/balance", map[string]string{
+		"billing_subject_type": subjectType,
+		"billing_subject_id":   subjectID,
+		"billable_item_code":   billableItemCode,
+	}))
+}
+
+func (c *Client) GrantCapability(input GrantCapabilityInput) (*CapabilityGrant, error) {
+	return doPost[GrantCapabilityInput, CapabilityGrant](c, "/controls/capability/grants", input)
+}
+
+func (c *Client) ResolveCapability(productCode, billingSubjectType, billingSubjectID, capabilityCode string) (*ResolveCapabilityResult, error) {
+	return doGet[ResolveCapabilityResult](c, withQuery("/controls/capability/resolve", map[string]string{
+		"product_code":         productCode,
+		"billing_subject_type": billingSubjectType,
+		"billing_subject_id":   billingSubjectID,
+		"capability_code":      capabilityCode,
+	}))
+}
+
 func (c *Client) CreateRuntimeJob(input CreateRuntimeJobInput) (*RuntimeJob, error) {
 	return doPost[CreateRuntimeJobInput, RuntimeJob](c, "/runtime/jobs", input)
 }
@@ -878,10 +1198,11 @@ func (c *Client) DownloadAsset(storageKey string) (io.ReadCloser, http.Header, e
 	return resp.Body, resp.Header, nil
 }
 
-func (c *Client) ListWalletAccounts(subjectType, subjectID string) ([]WalletAccount, error) {
+func (c *Client) ListWalletAccounts(subjectType, subjectID, productCode string) ([]WalletAccount, error) {
 	path := withQuery("/wallet/accounts", map[string]string{
 		"billing_subject_type": subjectType,
 		"billing_subject_id":   subjectID,
+		"product_code":         productCode,
 	})
 	out, err := doGet[platformItemsResponse[WalletAccount]](c, path)
 	if err != nil {
@@ -916,15 +1237,32 @@ func (c *Client) CreateAssetDefinition(input CreateAssetDefinitionInput) (*Asset
 	return doPost[CreateAssetDefinitionInput, AssetDefinition](c, "/wallet/assets", input)
 }
 
-func (c *Client) ListWalletLedger(walletAccountID string) ([]WalletLedger, error) {
+func (c *Client) ListWalletLedger(walletAccountID, productCode string) ([]WalletLedger, error) {
 	path := withQuery("/wallet/ledger", map[string]string{
 		"wallet_account_id": walletAccountID,
+		"product_code":      productCode,
 	})
 	out, err := doGet[platformItemsResponse[WalletLedger]](c, path)
 	if err != nil {
 		return nil, err
 	}
 	return out.Items, nil
+}
+
+func (c *Client) PostWalletLedger(input PostWalletLedgerInput) (*WalletLedger, *WalletAccount, error) {
+	out, err := doPost[PostWalletLedgerInput, postWalletLedgerResult](c, "/wallet/ledger", input)
+	if err != nil {
+		return nil, nil, err
+	}
+	return out.Ledger, out.Account, nil
+}
+
+func (c *Client) GrantCycleAllowance(input GrantCycleAllowanceInput) (*WalletBucket, *WalletAccount, error) {
+	out, err := doPost[GrantCycleAllowanceInput, grantCycleAllowanceResult](c, "/wallet/cycle-allowances", input)
+	if err != nil {
+		return nil, nil, err
+	}
+	return out.Bucket, out.Account, nil
 }
 
 func (c *Client) ListRewards(productCode, beneficiaryType, beneficiaryID string) ([]RewardLedger, error) {
@@ -1035,6 +1373,18 @@ func doPublicPost[Req any, Resp any](c *Client, path string, body Req) (*Resp, e
 
 func doPut[Req any, Resp any](c *Client, path string, body Req) (*Resp, error) {
 	return doRequest[Resp](c, http.MethodPut, path, body)
+}
+
+func (c *Client) InternalTemplateCatalog(productCode string) (*PlatformTemplateCatalogResult, error) {
+	params := url.Values{}
+	params.Set("product_code", productCode)
+	params.Set("published_only", "true")
+	path := "template-ops/catalog?" + params.Encode()
+	return doGet[PlatformTemplateCatalogResult](c, path)
+}
+
+func (c *Client) InternalTemplateCatalogDetail(templateRef string) (*PlatformTemplateCatalogDetail, error) {
+	return doGet[PlatformTemplateCatalogDetail](c, "template-ops/catalog/"+url.PathEscape(templateRef))
 }
 
 func doRequest[T any](c *Client, method, path string, payload any) (*T, error) {

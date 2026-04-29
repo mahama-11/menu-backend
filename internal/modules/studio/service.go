@@ -26,14 +26,15 @@ import (
 )
 
 type Service struct {
-	repo      *repository.StudioRepository
-	shareRepo *repository.ShareRepository
-	userRepo  *repository.UserRepository
-	audit     *audit.Service
-	platform  *platform.Client
-	appCfg    config.AppConfig
-	cfg       config.StudioConfig
-	security  config.SecurityConfig
+	repo         *repository.StudioRepository
+	templateRepo *repository.TemplateCenterRepository
+	shareRepo    *repository.ShareRepository
+	userRepo     *repository.UserRepository
+	audit        *audit.Service
+	platform     *platform.Client
+	appCfg       config.AppConfig
+	cfg          config.StudioConfig
+	security     config.SecurityConfig
 }
 
 type StyleDimension struct {
@@ -45,6 +46,9 @@ type StyleDimension struct {
 type StyleExecutionProfile struct {
 	Provider               string            `json:"provider,omitempty"`
 	Model                  string            `json:"model,omitempty"`
+	SystemPrompt           string            `json:"system_prompt,omitempty"`
+	StylePrompt            string            `json:"style_prompt,omitempty"`
+	UserPrompt             string            `json:"user_prompt,omitempty"`
 	PromptTemplate         string            `json:"prompt_template,omitempty"`
 	NegativePromptTemplate string            `json:"negative_prompt_template,omitempty"`
 	ParameterProfile       map[string]any    `json:"parameter_profile,omitempty"`
@@ -90,6 +94,8 @@ type StylePresetSummary struct {
 type GenerationVariantSummary struct {
 	VariantID       string         `json:"variant_id"`
 	AssetID         string         `json:"asset_id,omitempty"`
+	Asset           *AssetSummary  `json:"asset,omitempty"`
+	PreviewURL      string         `json:"preview_url,omitempty"`
 	ParentVariantID string         `json:"parent_variant_id,omitempty"`
 	Status          string         `json:"status"`
 	Index           int            `json:"index"`
@@ -122,6 +128,7 @@ type GenerationJobSummary struct {
 	ErrorMessage      string                      `json:"error_message,omitempty"`
 	SelectedVariantID string                      `json:"selected_variant_id,omitempty"`
 	PromptSnapshot    StyleExecutionProfile       `json:"prompt_snapshot"`
+	CreativeSource    *CreativeSourceSnapshot     `json:"creative_source,omitempty"`
 	ParamsSnapshot    map[string]any              `json:"params_snapshot,omitempty"`
 	Metadata          map[string]any              `json:"metadata,omitempty"`
 	Variants          []GenerationVariantSummary  `json:"variants,omitempty"`
@@ -259,6 +266,18 @@ type CreateGenerationJobInput struct {
 	Metadata          map[string]any `json:"metadata"`
 }
 
+type CreativeSourceSnapshot struct {
+	SourceType        string `json:"source_type,omitempty"`
+	SourceID          string `json:"source_id,omitempty"`
+	Title             string `json:"title,omitempty"`
+	PlanRequired      string `json:"plan_required,omitempty"`
+	CreditsCost       int64  `json:"credits_cost,omitempty"`
+	TargetPlatform    string `json:"target_platform,omitempty"`
+	TemplateID        string `json:"template_id,omitempty"`
+	TemplateVersionID string `json:"template_version_id,omitempty"`
+	StylePresetID     string `json:"style_preset_id,omitempty"`
+}
+
 type RecordJobResultsInput struct {
 	Status       string                  `json:"status" binding:"required,oneof=processing completed failed canceled"`
 	Progress     int                     `json:"progress"`
@@ -295,16 +314,17 @@ type SelectVariantInput struct {
 	VariantID string `json:"variant_id" binding:"required"`
 }
 
-func NewService(repo *repository.StudioRepository, shareRepo *repository.ShareRepository, userRepo *repository.UserRepository, auditService *audit.Service, platformClient *platform.Client, appCfg config.AppConfig, cfg config.StudioConfig, securityCfg config.SecurityConfig) *Service {
+func NewService(repo *repository.StudioRepository, templateRepo *repository.TemplateCenterRepository, shareRepo *repository.ShareRepository, userRepo *repository.UserRepository, auditService *audit.Service, platformClient *platform.Client, appCfg config.AppConfig, cfg config.StudioConfig, securityCfg config.SecurityConfig) *Service {
 	return &Service{
-		repo:      repo,
-		shareRepo: shareRepo,
-		userRepo:  userRepo,
-		audit:     auditService,
-		platform:  platformClient,
-		appCfg:    appCfg,
-		cfg:       cfg,
-		security:  securityCfg,
+		repo:         repo,
+		templateRepo: templateRepo,
+		shareRepo:    shareRepo,
+		userRepo:     userRepo,
+		audit:        auditService,
+		platform:     platformClient,
+		appCfg:       appCfg,
+		cfg:          cfg,
+		security:     securityCfg,
 	}
 }
 
@@ -486,20 +506,17 @@ func (s *Service) CreateGenerationJob(userID, orgID string, input CreateGenerati
 	if err := s.validateSourceAssets(orgID, input.SourceAssetIDs); err != nil {
 		return nil, err
 	}
-	var promptSnapshot StyleExecutionProfile
-	providerName := firstNonEmpty(input.Provider, s.cfg.DefaultProvider)
-	if input.StylePresetID != "" {
-		style, err := s.repo.FindStylePresetByID(orgID, input.StylePresetID)
-		if err != nil {
-			return nil, err
-		}
-		promptSnapshot = decodeExecutionProfile(style.ExecutionProfile)
-		providerName = firstNonEmpty(input.Provider, promptSnapshot.Provider, s.cfg.DefaultProvider)
+	normalizedMetadata := normalizeCreativeSourceMetadata(input.Metadata)
+	promptSnapshot, err := s.resolvePromptSnapshot(orgID, input, normalizedMetadata)
+	if err != nil {
+		return nil, err
 	}
+	providerName := firstNonEmpty(input.Provider, promptSnapshot.Provider, stringMapValue(normalizedMetadata, "provider"), s.cfg.DefaultProvider)
 	requestedVariants := input.RequestedVariants
 	if requestedVariants <= 0 {
 		requestedVariants = s.cfg.DefaultVariantCount
 	}
+	effectivePrompt := promptSnapshot.PromptTemplate
 	if input.Mode == "batch" && len(input.SourceAssetIDs) > 1 {
 		var idempotencyKey *string
 		if input.IdempotencyKey != "" {
@@ -519,9 +536,10 @@ func (s *Service) CreateGenerationJob(userID, orgID string, input CreateGenerati
 			RequestedVariants: requestedVariants,
 			ChildJobCount:     len(input.SourceAssetIDs),
 			Progress:          0,
+			Prompt:            effectivePrompt,
 			PromptSnapshot:    mustEncodeJSON(promptSnapshot),
 			ParamsSnapshot:    mustEncodeJSON(input.Params),
-			Metadata:          mustEncodeJSON(input.Metadata),
+			Metadata:          mustEncodeJSON(normalizedMetadata),
 			MaxAttempts:       s.cfg.MaxAttempts,
 		}
 		if err := s.repo.CreateGenerationJob(root); err != nil {
@@ -543,15 +561,19 @@ func (s *Service) CreateGenerationJob(userID, orgID string, input CreateGenerati
 				SourceAssetIDs:    mustEncodeJSON([]string{assetID}),
 				RequestedVariants: requestedVariants,
 				Progress:          0,
+				Prompt:            effectivePrompt,
 				PromptSnapshot:    mustEncodeJSON(promptSnapshot),
 				ParamsSnapshot:    mustEncodeJSON(mergeMaps(input.Params, map[string]any{"batch_index": index})),
-				Metadata:          mustEncodeJSON(input.Metadata),
+				Metadata:          mustEncodeJSON(normalizedMetadata),
 				MaxAttempts:       s.cfg.MaxAttempts,
 			}
 			if err := s.repo.CreateGenerationJob(child); err != nil {
 				return nil, err
 			}
 			if err := s.createChargeIntentForJob(child); err != nil {
+				return nil, err
+			}
+			if err := s.createPlatformRuntimeJob(child); err != nil {
 				return nil, err
 			}
 		}
@@ -574,12 +596,13 @@ func (s *Service) CreateGenerationJob(userID, orgID string, input CreateGenerati
 		SourceAssetIDs:    mustEncodeJSON(input.SourceAssetIDs),
 		RequestedVariants: requestedVariants,
 		Progress:          0,
+		Prompt:            effectivePrompt,
 		QueuePosition:     0,
 		EtaSeconds:        0,
 		PromptSnapshot:    mustEncodeJSON(promptSnapshot),
 		ParamsSnapshot:    mustEncodeJSON(input.Params),
 		SelectedVariantID: "",
-		Metadata:          mustEncodeJSON(input.Metadata),
+		Metadata:          mustEncodeJSON(normalizedMetadata),
 		MaxAttempts:       s.cfg.MaxAttempts,
 	}
 	if err := s.repo.CreateGenerationJob(item); err != nil {
@@ -588,8 +611,96 @@ func (s *Service) CreateGenerationJob(userID, orgID string, input CreateGenerati
 	if err := s.createChargeIntentForJob(item); err != nil {
 		return nil, err
 	}
+	if err := s.createPlatformRuntimeJob(item); err != nil {
+		return nil, err
+	}
 	_ = s.createActivity(userID, orgID, "studio.job", "Create generation job", "queued", 0, "", item.ID)
 	return s.GetGenerationJob(orgID, item.ID)
+}
+
+func (s *Service) createPlatformRuntimeJob(item *models.GenerationJob) error {
+	if s.platform == nil {
+		return fmt.Errorf("platform client is required")
+	}
+	sourceAssetIDs := decodeStringSlice(item.SourceAssetIDs)
+	sourceAssets := make([]map[string]any, 0, len(sourceAssetIDs))
+	for _, assetID := range sourceAssetIDs {
+		asset, err := s.repo.FindAssetByIDGlobal(assetID)
+		if err != nil {
+			return fmt.Errorf("load source asset %s: %w", assetID, err)
+		}
+		sourceAssets = append(sourceAssets, map[string]any{
+			"id":          asset.ID,
+			"storage_key": asset.StorageKey,
+			"mime_type":   asset.MimeType,
+			"width":       asset.Width,
+			"height":      asset.Height,
+		})
+	}
+	inputManifest := mustEncodeJSON(map[string]any{
+		"mode":               item.Mode,
+		"prompt":             item.Prompt,
+		"prompt_snapshot":    decodeExecutionProfile(item.PromptSnapshot),
+		"params_snapshot":    decodeMap(item.ParamsSnapshot),
+		"source_asset_ids":   sourceAssetIDs,
+		"source_assets":      sourceAssets,
+		"requested_variants": item.RequestedVariants,
+	})
+	routeSnapshot := mustEncodeJSON(map[string]any{
+		"provider": item.Provider,
+	})
+	runtimeMetadata := map[string]any{
+		"menu_job_id":        item.ID,
+		"creative_source":    decodeCreativeSource(item.Metadata),
+		"studio_metadata":    decodeMap(item.Metadata),
+		"target_platform":    stringMapValue(decodeMap(item.ParamsSnapshot), "target_platform"),
+		"requested_variants": item.RequestedVariants,
+	}
+	idempotencyKey := firstNonEmpty(derefString(item.IdempotencyKey), fmt.Sprintf("menu:%s:create_runtime", item.ID))
+	runtimeJob, err := s.platform.CreateRuntimeJob(platform.CreateRuntimeJobInput{
+		ProductCode:     s.cfg.ProductCode,
+		TaskType:        "image_generation",
+		ProviderCode:    normalizeRuntimeProviderCode(item.Provider),
+		ProviderMode:    "async",
+		OrganizationID:  item.OrganizationID,
+		UserID:          item.UserID,
+		SourceType:      "menu_generation_job",
+		SourceID:        item.ID,
+		IdempotencyKey:  idempotencyKey,
+		ChargeSessionID: item.ChargeSessionID,
+		InputManifest:   inputManifest,
+		RouteSnapshot:   routeSnapshot,
+		Metadata:        mustEncodeJSON(runtimeMetadata),
+		Priority:        100,
+		MaxAttempts:     item.MaxAttempts,
+		TimeoutSeconds:  600,
+	})
+	if err != nil {
+		_ = s.releaseChargeIntent(item)
+		now := time.Now()
+		item.Status = "failed"
+		item.Stage = "runtime_create_failed"
+		item.StageMessage = "Failed to create runtime job"
+		item.ErrorCode = "RUNTIME_CREATE_FAILED"
+		item.ErrorMessage = err.Error()
+		item.CompletedAt = &now
+		item.TimeoutAt = nil
+		item.HeartbeatAt = nil
+		item.NextRetryAt = nil
+		_ = s.repo.SaveGenerationJob(item)
+		return err
+	}
+	item.RuntimeJobID = runtimeJob.ID
+	item.ProviderJobID = runtimeJob.ProviderJobID
+	item.Status = firstNonEmpty(runtimeJob.Status, "queued")
+	item.Stage = firstNonEmpty(runtimeJob.Stage, "queued")
+	item.StageMessage = firstNonEmpty(runtimeJob.StageMessage, "Runtime job queued")
+	item.ErrorCode = ""
+	item.ErrorMessage = ""
+	if err := s.repo.SaveGenerationJob(item); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *Service) ListGenerationJobs(userID, orgID, status string) ([]GenerationJobSummary, error) {
@@ -757,6 +868,19 @@ func (s *Service) RecordJobResults(userID, orgID, jobID string, input RecordJobR
 		variant.Score = variantInput.Score
 		variant.IsSelected = variantInput.IsSelected
 		variant.Metadata = mustEncodeJSON(variantInput.Metadata)
+		if assetID != "" {
+			metadata := decodeMap(variant.Metadata)
+			if metadata == nil {
+				metadata = map[string]any{}
+			}
+			if previewURL := stringMapValue(variantInput.Asset.Metadata, "preview_url"); previewURL != "" {
+				metadata["preview_url"] = previewURL
+			}
+			if metadata["preview_url"] == nil && variantInput.Asset.SourceURL != "" {
+				metadata["preview_url"] = variantInput.Asset.SourceURL
+			}
+			variant.Metadata = mustEncodeJSON(metadata)
+		}
 		if variant.ID == "" {
 			if err := s.repo.CreateGenerationVariant(variant); err != nil {
 				return nil, err
@@ -979,6 +1103,7 @@ func (s *Service) mapGenerationJob(item *models.GenerationJob, variants []models
 		ErrorMessage:      item.ErrorMessage,
 		SelectedVariantID: item.SelectedVariantID,
 		PromptSnapshot:    decodeExecutionProfile(item.PromptSnapshot),
+		CreativeSource:    decodeCreativeSource(item.Metadata),
 		ParamsSnapshot:    decodeMap(item.ParamsSnapshot),
 		Metadata:          decodeMap(item.Metadata),
 		CreatedAt:         item.CreatedAt.UTC().Format(time.RFC3339),
@@ -1010,9 +1135,17 @@ func (s *Service) mapGenerationJob(item *models.GenerationJob, variants []models
 		out.CanceledAt = &value
 	}
 	for _, variant := range variants {
+		var assetSummary *AssetSummary
+		if variant.AssetID != "" {
+			if asset, err := s.repo.FindAssetByID(item.OrganizationID, variant.AssetID); err == nil {
+				assetSummary = s.mapAsset(asset)
+			}
+		}
 		out.Variants = append(out.Variants, GenerationVariantSummary{
 			VariantID:       variant.ID,
 			AssetID:         variant.AssetID,
+			Asset:           assetSummary,
+			PreviewURL:      stringMapValue(decodeMap(variant.Metadata), "preview_url"),
 			ParentVariantID: variant.ParentVariantID,
 			Status:          variant.Status,
 			Index:           variant.VariantIndex,
@@ -1079,9 +1212,8 @@ func (s *Service) mapGenerationJobCharge(job *models.GenerationJob, intent *mode
 }
 
 func (s *Service) chargePriorityAssetCodes() []string {
-	out := make([]string, 0, 3)
+	out := make([]string, 0, 2)
 	for _, code := range []string{
-		s.appCfg.AllowanceAssetCode,
 		s.appCfg.RewardAssetCode,
 		s.appCfg.CreditsAssetCode,
 	} {
@@ -1278,6 +1410,38 @@ func decodeMap(raw string) map[string]any {
 	return out
 }
 
+func decodeMapString(raw string) map[string]string {
+	if raw == "" {
+		return map[string]string{}
+	}
+	out := map[string]string{}
+	_ = json.Unmarshal([]byte(raw), &out)
+	return out
+}
+
+func decodeCreativeSource(raw string) *CreativeSourceSnapshot {
+	metadata := decodeMap(raw)
+	source, ok := metadata["creative_source"].(map[string]any)
+	if !ok || len(source) == 0 {
+		return nil
+	}
+	out := &CreativeSourceSnapshot{
+		SourceType:        stringMapValue(source, "source_type"),
+		SourceID:          firstNonEmpty(stringMapValue(source, "source_id"), stringMapValue(source, "template_id"), stringMapValue(source, "style_preset_id")),
+		Title:             stringMapValue(source, "title"),
+		PlanRequired:      stringMapValue(source, "plan_required"),
+		CreditsCost:       int64MapValue(source, "credits_cost"),
+		TargetPlatform:    stringMapValue(source, "target_platform"),
+		TemplateID:        stringMapValue(source, "template_id"),
+		TemplateVersionID: stringMapValue(source, "template_version_id"),
+		StylePresetID:     stringMapValue(source, "style_preset_id"),
+	}
+	if out.SourceType == "" && out.SourceID == "" {
+		return nil
+	}
+	return out
+}
+
 func mergeJSON(raw string, incoming map[string]any) string {
 	if len(incoming) == 0 {
 		return raw
@@ -1296,6 +1460,311 @@ func mergeMaps(base map[string]any, incoming map[string]any) map[string]any {
 		maps.Copy(out, incoming)
 	}
 	return out
+}
+
+func normalizeCreativeSourceMetadata(input map[string]any) map[string]any {
+	metadata := mergeMaps(nil, input)
+	source, ok := metadata["creative_source"].(map[string]any)
+	if !ok || len(source) == 0 {
+		return metadata
+	}
+	if templateID := stringMapValue(source, "template_id"); templateID != "" {
+		metadata["template_catalog_id"] = templateID
+	}
+	if templateVersionID := stringMapValue(source, "template_version_id"); templateVersionID != "" {
+		metadata["template_version_id"] = templateVersionID
+	}
+	if stylePresetID := stringMapValue(source, "style_preset_id"); stylePresetID != "" {
+		metadata["style_preset_id"] = stylePresetID
+	}
+	if targetPlatform := stringMapValue(source, "target_platform"); targetPlatform != "" {
+		metadata["target_platform"] = targetPlatform
+	}
+	return metadata
+}
+
+func (s *Service) resolvePromptSnapshot(orgID string, input CreateGenerationJobInput, metadata map[string]any) (StyleExecutionProfile, error) {
+	profile := StyleExecutionProfile{}
+	language := defaultString(stringMapValue(input.Params, "language"), "en")
+	templateProfile, err := s.resolveTemplatePromptProfile(metadata, language)
+	if err != nil {
+		return StyleExecutionProfile{}, err
+	}
+	profile = mergeExecutionProfiles(profile, templateProfile)
+	stylePresetID := firstNonEmpty(input.StylePresetID, stringMapValue(metadata, "style_preset_id"))
+	if stylePresetID != "" {
+		style, err := s.repo.FindStylePresetByID(orgID, stylePresetID)
+		if err != nil {
+			return StyleExecutionProfile{}, err
+		}
+		profile = mergeExecutionProfiles(profile, sanitizeFrontendExecutionProfile(decodeExecutionProfile(style.ExecutionProfile)))
+	}
+	profile = mergeExecutionProfiles(profile, buildPromptSnapshotFromInput(input, metadata))
+	profile.Provider = firstNonEmpty(input.Provider, profile.Provider)
+	return finalizePromptSnapshot(profile, strings.TrimSpace(input.Prompt)), nil
+}
+
+func (s *Service) resolveTemplatePromptProfile(metadata map[string]any, language string) (StyleExecutionProfile, error) {
+	templateVersionID := stringMapValue(metadata, "template_version_id")
+	templateID := firstNonEmpty(stringMapValue(metadata, "template_catalog_id"), stringMapValue(metadata, "template_id"))
+	if templateVersionID == "" && templateID == "" {
+		return StyleExecutionProfile{}, nil
+	}
+	if s.templateRepo != nil && templateVersionID != "" {
+		version, err := s.templateRepo.FindCatalogVersionByID(templateVersionID)
+		if err == nil {
+			var catalog *models.TemplateCatalog
+			if s.templateRepo != nil {
+				catalog, _ = s.templateRepo.FindCatalogByID(version.TemplateCatalogID)
+			}
+			return profileFromTemplateVersion(catalog, version, language), nil
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return StyleExecutionProfile{}, err
+		}
+	}
+	if s.platform != nil && templateID != "" {
+		detail, err := s.platform.InternalTemplateCatalogDetail(normalizePlatformTemplateRef("menu", templateID))
+		if err != nil {
+			return StyleExecutionProfile{}, err
+		}
+		return profileFromPlatformTemplateDetail(detail, language), nil
+	}
+	return StyleExecutionProfile{}, nil
+}
+
+func buildPromptSnapshotFromInput(input CreateGenerationJobInput, metadata map[string]any) StyleExecutionProfile {
+	profile := StyleExecutionProfile{
+		Provider:   firstNonEmpty(input.Provider, stringMapValue(metadata, "provider")),
+		UserPrompt: strings.TrimSpace(input.Prompt),
+	}
+	if executionProfile, ok := metadata["execution_profile"].(map[string]any); ok {
+		profile.Provider = firstNonEmpty(profile.Provider, stringMapValue(executionProfile, "provider"))
+		profile.Model = stringMapValue(executionProfile, "model")
+		profile.StylePrompt = stringMapValue(executionProfile, "style_prompt")
+		profile.UserPrompt = firstNonEmpty(profile.UserPrompt, stringMapValue(executionProfile, "user_prompt"))
+		profile.NegativePromptTemplate = stringMapValue(executionProfile, "negative_prompt_template")
+		if parameterProfile, ok := executionProfile["parameter_profile"].(map[string]any); ok {
+			profile.ParameterProfile = mergeMaps(nil, parameterProfile)
+		}
+		if variables, ok := executionProfile["variables"].(map[string]any); ok {
+			out := map[string]string{}
+			for key, value := range variables {
+				if str, ok := value.(string); ok {
+					out[key] = str
+				}
+			}
+			if len(out) > 0 {
+				profile.Variables = out
+			}
+		}
+	}
+	profile = finalizePromptSnapshot(profile, strings.TrimSpace(input.Prompt))
+	return profile
+}
+
+func sanitizeFrontendExecutionProfile(profile StyleExecutionProfile) StyleExecutionProfile {
+	profile.SystemPrompt = ""
+	profile.PromptTemplate = ""
+	return profile
+}
+
+func mergeExecutionProfiles(base, overlay StyleExecutionProfile) StyleExecutionProfile {
+	base.Provider = firstNonEmpty(base.Provider, overlay.Provider)
+	base.Model = firstNonEmpty(base.Model, overlay.Model)
+	base.SystemPrompt = firstNonEmpty(base.SystemPrompt, overlay.SystemPrompt)
+	base.StylePrompt = firstNonEmpty(base.StylePrompt, overlay.StylePrompt)
+	base.UserPrompt = firstNonEmpty(base.UserPrompt, overlay.UserPrompt)
+	base.NegativePromptTemplate = firstNonEmpty(base.NegativePromptTemplate, overlay.NegativePromptTemplate)
+	if len(base.ParameterProfile) == 0 && len(overlay.ParameterProfile) > 0 {
+		base.ParameterProfile = mergeMaps(nil, overlay.ParameterProfile)
+	}
+	if len(base.Variables) == 0 && len(overlay.Variables) > 0 {
+		base.Variables = maps.Clone(overlay.Variables)
+	}
+	return base
+}
+
+func profileFromTemplateVersion(catalog *models.TemplateCatalog, version *models.TemplateCatalogVersion, language string) StyleExecutionProfile {
+	profile := decodeExecutionProfile(version.ExecutionProfileJSON)
+	prompts := decodeMapString(version.PromptTemplatesJSON)
+	profile.SystemPrompt = defaultString(prompts[language], profile.SystemPrompt)
+	if profile.StylePrompt == "" && profile.PromptTemplate != "" && profile.PromptTemplate != profile.SystemPrompt {
+		profile.StylePrompt = profile.PromptTemplate
+	}
+	if profile.SystemPrompt == "" && profile.StylePrompt == "" && catalog != nil {
+		profile.StylePrompt = buildTemplateFallbackStylePrompt(
+			catalog.Name,
+			catalog.Description,
+			catalog.Cuisine,
+			catalog.DishType,
+			decodeStringSlice(catalog.PlatformsJSON),
+			decodeStringSlice(catalog.MoodsJSON),
+			decodeStringSlice(catalog.TagsJSON),
+			decodeMap(version.DesignSpecJSON),
+			decodeMap(version.MetadataJSON),
+		)
+	}
+	profile.PromptTemplate = ""
+	return profile
+}
+
+func profileFromPlatformTemplateDetail(detail *platform.PlatformTemplateCatalogDetail, language string) StyleExecutionProfile {
+	profile := decodeExecutionProfile(mustEncodeJSON(mapValue(detail.DetailRaw, "execution_profile")))
+	prompts := mapStringFromAnyMap(mapValue(detail.DetailRaw, "prompt_templates"))
+	profile.SystemPrompt = defaultString(prompts[language], profile.SystemPrompt)
+	if profile.StylePrompt == "" && profile.PromptTemplate != "" && profile.PromptTemplate != profile.SystemPrompt {
+		profile.StylePrompt = profile.PromptTemplate
+	}
+	if profile.SystemPrompt == "" && profile.StylePrompt == "" {
+		profile.StylePrompt = buildTemplateFallbackStylePrompt(
+			detail.Item.Name,
+			detail.Item.Summary,
+			stringMapValue(detail.Item.Raw, "cuisine"),
+			stringMapValue(detail.Item.Raw, "dish_type"),
+			detail.Item.Platforms,
+			decodeAnyStringSlice(detail.Item.Raw["moods"]),
+			detail.Item.Tags,
+			mergeMaps(
+				mapValue(detail.DetailRaw, "design_spec"),
+				map[string]any{
+					"layout":   stringMapValue(detail.DetailRaw, "layout"),
+					"lighting": stringMapValue(detail.DetailRaw, "lighting"),
+					"props":    decodeAnyStringSlice(detail.DetailRaw["props"]),
+				},
+			),
+			mapValue(detail.DetailRaw, "metadata"),
+		)
+	}
+	profile.PromptTemplate = ""
+	return profile
+}
+
+func finalizePromptSnapshot(profile StyleExecutionProfile, rawInputPrompt string) StyleExecutionProfile {
+	profile.SystemPrompt = strings.TrimSpace(profile.SystemPrompt)
+	profile.StylePrompt = strings.TrimSpace(profile.StylePrompt)
+	profile.UserPrompt = strings.TrimSpace(profile.UserPrompt)
+	profile.PromptTemplate = strings.TrimSpace(profile.PromptTemplate)
+
+	if profile.SystemPrompt == "" && profile.PromptTemplate != "" {
+		profile.SystemPrompt = profile.PromptTemplate
+	}
+	if raw := strings.TrimSpace(rawInputPrompt); raw != "" {
+		withoutUser := composePromptParts(profile.SystemPrompt, profile.StylePrompt)
+		if raw != withoutUser && raw != profile.PromptTemplate {
+			profile.UserPrompt = raw
+		}
+	}
+	profile.PromptTemplate = composePromptParts(profile.SystemPrompt, profile.StylePrompt, profile.UserPrompt)
+	return profile
+}
+
+func composePromptParts(parts ...string) string {
+	out := make([]string, 0, len(parts))
+	seen := map[string]struct{}{}
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		out = append(out, trimmed)
+	}
+	return strings.Join(out, "\n\n")
+}
+
+func mapValue(items map[string]any, key string) map[string]any {
+	if items == nil {
+		return map[string]any{}
+	}
+	if value, ok := items[key].(map[string]any); ok {
+		return value
+	}
+	return map[string]any{}
+}
+
+func mapStringFromAnyMap(items map[string]any) map[string]string {
+	out := map[string]string{}
+	for key, value := range items {
+		if text, ok := value.(string); ok {
+			out[key] = text
+		}
+	}
+	return out
+}
+
+func decodeAnyStringSlice(value any) []string {
+	items, ok := value.([]any)
+	if !ok {
+		if stringsValue, ok := value.([]string); ok {
+			return stringsValue
+		}
+		return nil
+	}
+	result := make([]string, 0, len(items))
+	for _, item := range items {
+		if str, ok := item.(string); ok {
+			result = append(result, str)
+		}
+	}
+	return result
+}
+
+func buildTemplateFallbackStylePrompt(name, description, cuisine, dishType string, platforms, moods, tags []string, designSpec, metadata map[string]any) string {
+	parts := make([]string, 0, 10)
+	appendLabeled := func(label, value string) {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			return
+		}
+		parts = append(parts, label+": "+trimmed)
+	}
+	appendList := func(label string, values []string) {
+		filtered := make([]string, 0, len(values))
+		for _, item := range values {
+			if trimmed := strings.TrimSpace(item); trimmed != "" {
+				filtered = append(filtered, trimmed)
+			}
+		}
+		if len(filtered) == 0 {
+			return
+		}
+		parts = append(parts, label+": "+strings.Join(filtered, ", "))
+	}
+	appendLabeled("Template", name)
+	appendLabeled("Description", description)
+	appendLabeled("Cuisine", cuisine)
+	appendLabeled("Dish Type", dishType)
+	appendList("Platforms", platforms)
+	appendList("Moods", moods)
+	appendList("Tags", tags)
+	appendLabeled("Layout", firstNonEmpty(stringMapValue(designSpec, "layout"), stringMapValue(metadata, "layout"), stringMapValue(metadata, "cover_layout")))
+	appendLabeled("Lighting", firstNonEmpty(stringMapValue(designSpec, "lighting"), stringMapValue(metadata, "lighting")))
+	appendList("Props", firstNonEmptyStringSlice(
+		decodeAnyStringSlice(designSpec["props"]),
+		decodeAnyStringSlice(metadata["props"]),
+	))
+	return strings.Join(parts, "\n")
+}
+
+func firstNonEmptyStringSlice(values ...[]string) []string {
+	for _, items := range values {
+		if len(items) > 0 {
+			return items
+		}
+	}
+	return nil
+}
+
+func normalizePlatformTemplateRef(productCode, templateRef string) string {
+	trimmed := strings.TrimSpace(templateRef)
+	if trimmed == "" || strings.Contains(trimmed, ":") {
+		return trimmed
+	}
+	return productCode + ":" + trimmed
 }
 
 func mapStatusToStage(status string) string {
@@ -1329,6 +1798,15 @@ func defaultStageMessage(stage, status string) string {
 		return "Job is scheduled for retry"
 	default:
 		return defaultString(status, "Job updated")
+	}
+}
+
+func normalizeRuntimeProviderCode(provider string) string {
+	switch strings.TrimSpace(strings.ToLower(provider)) {
+	case "", "default":
+		return ""
+	default:
+		return provider
 	}
 }
 

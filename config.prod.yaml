@@ -63,6 +63,11 @@ monitoring:
     log_spans: false
 
 studio:
+  product_code: "menu"
+  resource_type: "credits"
+  single_billable_item: "menu.render.call"
+  refinement_billable_item: "menu.render.call"
+  variation_billable_item: "menu.render.call"
   default_provider: "volcengine"
 
 volcengine:

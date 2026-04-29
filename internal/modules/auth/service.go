@@ -262,7 +262,13 @@ func (s *Service) lookupCreditsBalance(orgID string) int64 {
 	if err != nil {
 		return 0
 	}
-	return summary.TotalBalance
+	var total int64
+	for _, asset := range summary.Assets {
+		if isSpendableCreditsAsset(asset) {
+			total += asset.AvailableBalance
+		}
+	}
+	return total
 }
 
 func (s *Service) buildUserSummary(user platform.PlatformUserProfile, restaurantName, selectedRole string) UserSummary {
@@ -286,10 +292,20 @@ func (s *Service) buildCreditsSummary(orgID, planID string) CreditsSummary {
 	walletSummary, _ := s.platform.GetWalletSummary("organization", orgID, "menu")
 	var totalBalance, permanentBalance, rewardBalance, allowanceBalance int64
 	if walletSummary != nil {
-		totalBalance = walletSummary.TotalBalance
-		permanentBalance = walletSummary.PermanentBalance
-		rewardBalance = walletSummary.RewardBalance
-		allowanceBalance = walletSummary.AllowanceBalance
+		for _, asset := range walletSummary.Assets {
+			if !isSpendableCreditsAsset(asset) {
+				continue
+			}
+			totalBalance += asset.AvailableBalance
+			switch asset.LifecycleType {
+			case "cycle_reset":
+				allowanceBalance += asset.AvailableBalance
+			case "expiring":
+				rewardBalance += asset.AvailableBalance
+			default:
+				permanentBalance += asset.AvailableBalance
+			}
+		}
 	}
 	return CreditsSummary{
 		AssetCode:        s.appCfg.CreditsAssetCode,
@@ -388,6 +404,13 @@ func containsString(items []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func isSpendableCreditsAsset(asset platform.WalletAssetSummary) bool {
+	if asset.AssetCode == "MENU_CASH" || asset.AssetType == "cash_balance" {
+		return false
+	}
+	return true
 }
 
 func (s *Service) createSignupReferralConversion(user platform.PlatformUserProfile, input RegisterInput) error {

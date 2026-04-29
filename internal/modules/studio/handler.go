@@ -69,7 +69,7 @@ func (h *Handler) RegisterAsset(c *gin.Context) {
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
-		response.JSONErrorSemantic(c, response.CodeInternalError, "Failed to register asset", "STUDIO_ASSET_REGISTER_FAILED", "Check asset input and try again.")
+		writeRegisterAssetError(c, err)
 		return
 	}
 	metrics.IncBusinessCounter("studio_asset_registered_total")
@@ -87,12 +87,16 @@ func (h *Handler) RegisterAsset(c *gin.Context) {
 func (h *Handler) GetAssetContent(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/studio-handler", "menu.studio.asset.content")
 	defer span.End()
-	expiresAt, parseErr := strconv.ParseInt(c.Query("expires"), 10, 64)
-	if parseErr != nil || !h.service.ValidateAssetAccessSignature(c.Param("assetID"), expiresAt, c.Query("sig")) {
-		response.JSONErrorSemantic(c, response.CodeForbidden, "Forbidden", "STUDIO_ASSET_CONTENT_FORBIDDEN", "Refresh and try again.")
-		return
+	orgID := c.GetString("orgID")
+	assetID := c.Param("assetID")
+	if orgID == "" {
+		expiresAt, parseErr := strconv.ParseInt(c.Query("expires"), 10, 64)
+		if parseErr != nil || !h.service.ValidateAssetAccessSignature(assetID, expiresAt, c.Query("sig")) {
+			response.JSONErrorSemantic(c, response.CodeForbidden, "Forbidden", "STUDIO_ASSET_CONTENT_FORBIDDEN", "Refresh and try again.")
+			return
+		}
 	}
-	item, body, headers, err := h.service.GetAssetContent("", c.Param("assetID"))
+	item, body, headers, err := h.service.GetAssetContent(orgID, assetID)
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -285,6 +289,29 @@ func writeCreateJobError(c *gin.Context, err error) {
 		}
 	}
 	response.JSONErrorSemantic(c, response.CodeInternalError, "Failed to create generation job", "STUDIO_JOB_CREATE_FAILED", "Check the selected assets and style preset.")
+}
+
+func writeRegisterAssetError(c *gin.Context, err error) {
+	switch platform.ErrorCode(err) {
+	case "STORAGE_ASSET_PAYLOAD_INVALID":
+		response.JSONErrorWithStatusSemantic(c, response.CodeInvalidParameter, "Invalid studio asset payload", "STUDIO_ASSET_PAYLOAD_INVALID", firstNonEmpty(platform.ErrorHint(err), "Upload a valid image file and try again."), 400)
+		return
+	case "STORAGE_BINDING_NOT_FOUND", "STORAGE_PROVIDER_UNAVAILABLE":
+		response.JSONErrorWithStatusSemantic(c, response.CodeServiceUnavailable, "Studio asset storage is not ready", "STUDIO_ASSET_STORAGE_NOT_READY", firstNonEmpty(platform.ErrorHint(err), "Contact support to complete storage configuration before retrying."), 503)
+		return
+	}
+	switch status := platform.HTTPStatus(err); {
+	case status == 400 || status == 422:
+		response.JSONErrorWithStatusSemantic(c, response.CodeInvalidParameter, "Invalid studio asset payload", "STUDIO_ASSET_PAYLOAD_INVALID", firstNonEmpty(platform.ErrorHint(err), "Upload a valid image file and try again."), status)
+		return
+	case status == 404 || status == 503:
+		response.JSONErrorWithStatusSemantic(c, response.CodeServiceUnavailable, "Studio asset storage is not ready", "STUDIO_ASSET_STORAGE_NOT_READY", firstNonEmpty(platform.ErrorHint(err), "Contact support to complete storage configuration before retrying."), 503)
+		return
+	case status >= 500:
+		response.JSONErrorSemantic(c, response.CodeExternalDependency, "Studio asset upload service is temporarily unavailable", "STUDIO_ASSET_UPSTREAM_FAILED", firstNonEmpty(platform.ErrorHint(err), "Retry in a moment. If the issue continues, contact support."))
+		return
+	}
+	response.JSONErrorSemantic(c, response.CodeInternalError, "Failed to register asset", "STUDIO_ASSET_REGISTER_FAILED", "Check asset input and try again.")
 }
 
 func queryInt(c *gin.Context, key string, fallback int) int {

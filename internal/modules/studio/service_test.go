@@ -3,6 +3,7 @@ package studio
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -71,14 +72,252 @@ func TestCreateStylePresetAndGenerationJob(t *testing.T) {
 	}
 }
 
+func TestCreateGenerationJob_WithCreativeSourceMetadata(t *testing.T) {
+	mock := newPlatformMockServer(t)
+	service, db := newStudioTestServiceWithConfig(t, config.StudioConfig{
+		ProductCode:            "menu",
+		ResourceType:           "quota",
+		SingleBillableItem:     "menu.render.call",
+		RefinementBillableItem: "menu.render.call",
+		VariationBillableItem:  "menu.render.call",
+		DefaultProvider:        "volcengine",
+	}, platform.New(config.PlatformConfig{
+		BaseURL:               mock.server.URL,
+		Timeout:               time.Second,
+		ServiceName:           "menu-test",
+		InternalServiceSecret: "test-secret",
+	}))
+	t.Cleanup(mock.server.Close)
+	seedStudioTemplateVersion(t, db, "TPL-TH-001", "TPL-TH-001-v1", map[string]string{"en": "template prompt from official template"}, `{"provider":"volcengine"}`)
+	asset, err := service.RegisterAsset("user-1", "org-1", RegisterAssetInput{
+		AssetType:  "source",
+		SourceType: "upload",
+		FileName:   "template.jpg",
+		SourceURL:  "https://cdn.example.com/template.jpg",
+	})
+	if err != nil {
+		t.Fatalf("RegisterAsset() error = %v", err)
+	}
+
+	job, err := service.CreateGenerationJob("user-1", "org-1", CreateGenerationJobInput{
+		Mode:           "single",
+		SourceAssetIDs: []string{asset.ID},
+		Prompt:         "hero dish on premium plate",
+		Metadata: map[string]any{
+			"creative_source": map[string]any{
+				"source_type":         "template",
+				"source_id":           "TPL-TH-001",
+				"title":               "Tom Yum Hero",
+				"target_platform":     "instagram_feed",
+				"template_id":         "TPL-TH-001",
+				"template_version_id": "TPL-TH-001-v1",
+			},
+			"execution_profile": map[string]any{
+				"provider":     "volcengine",
+				"style_prompt": "premium plating, sharp focus",
+				"parameter_profile": map[string]any{
+					"stylization": 55,
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateGenerationJob() error = %v", err)
+	}
+
+	if job.Metadata["template_catalog_id"] != "TPL-TH-001" {
+		t.Fatalf("expected template_catalog_id in metadata, got %+v", job.Metadata)
+	}
+	creativeSource, ok := job.Metadata["creative_source"].(map[string]any)
+	if !ok || creativeSource["source_type"] != "template" {
+		t.Fatalf("expected creative_source metadata, got %+v", job.Metadata)
+	}
+	if job.Provider != "volcengine" {
+		t.Fatalf("expected provider from execution profile, got %+v", job)
+	}
+	if job.CreativeSource == nil || job.CreativeSource.SourceType != "template" || job.CreativeSource.TemplateID != "TPL-TH-001" {
+		t.Fatalf("expected top-level creative source, got %+v", job.CreativeSource)
+	}
+	if job.PromptSnapshot.SystemPrompt != "template prompt from official template" {
+		t.Fatalf("expected template prompt in system layer, got %+v", job.PromptSnapshot)
+	}
+	if job.PromptSnapshot.UserPrompt != "hero dish on premium plate" {
+		t.Fatalf("expected user prompt in user layer, got %+v", job.PromptSnapshot)
+	}
+	if job.PromptSnapshot.StylePrompt != "premium plating, sharp focus" {
+		t.Fatalf("expected style prompt from metadata execution profile, got %+v", job.PromptSnapshot)
+	}
+	if job.PromptSnapshot.PromptTemplate != "template prompt from official template\n\npremium plating, sharp focus\n\nhero dish on premium plate" {
+		t.Fatalf("expected composed prompt in prompt snapshot, got %+v", job.PromptSnapshot)
+	}
+	if job.PromptSnapshot.ParameterProfile["stylization"] != float64(55) {
+		t.Fatalf("expected parameter profile, got %+v", job.PromptSnapshot)
+	}
+}
+
+func TestCreateGenerationJob_DefaultProviderUsesPlatformBinding(t *testing.T) {
+	mock := newPlatformMockServer(t)
+	client := platform.New(config.PlatformConfig{
+		BaseURL:               mock.server.URL,
+		Timeout:               time.Second,
+		ServiceName:           "menu-test",
+		InternalServiceSecret: "test-secret",
+	})
+	service, _ := newStudioTestServiceWithConfig(t, config.StudioConfig{
+		ProductCode:            "menu",
+		ResourceType:           "credits",
+		SingleBillableItem:     "menu.render.call",
+		RefinementBillableItem: "menu.render.call",
+		VariationBillableItem:  "menu.render.call",
+		DefaultProvider:        "default",
+	}, client)
+	t.Cleanup(mock.server.Close)
+
+	asset, err := service.RegisterAsset("user-1", "org-1", RegisterAssetInput{
+		AssetType:  "source",
+		SourceType: "upload",
+		FileName:   "template.jpg",
+		SourceURL:  "https://cdn.example.com/template.jpg",
+	})
+	if err != nil {
+		t.Fatalf("RegisterAsset() error = %v", err)
+	}
+
+	job, err := service.CreateGenerationJob("user-1", "org-1", CreateGenerationJobInput{
+		Mode:           "single",
+		Provider:       "default",
+		SourceAssetIDs: []string{asset.ID},
+		Prompt:         "hero dish",
+	})
+	if err != nil {
+		t.Fatalf("CreateGenerationJob() error = %v", err)
+	}
+	stored, err := service.repo.FindGenerationJobByID("org-1", job.JobID)
+	if err != nil {
+		t.Fatalf("FindGenerationJobByID() error = %v", err)
+	}
+	if stored.RuntimeJobID == "" {
+		t.Fatalf("expected runtime job id, got %+v", stored)
+	}
+	payload := mock.lastRuntimePayload()
+	if payload == nil {
+		t.Fatalf("expected runtime payload to be captured")
+	}
+	if value, exists := payload["provider_code"]; exists && value != "" {
+		t.Fatalf("expected provider_code to be omitted for default provider, got %+v", payload)
+	}
+}
+
+func TestCreateGenerationJob_ComposesLayeredPromptFromExecutionProfile(t *testing.T) {
+	mock := newPlatformMockServer(t)
+	service, db := newStudioTestServiceWithConfig(t, config.StudioConfig{
+		ProductCode:            "menu",
+		ResourceType:           "quota",
+		SingleBillableItem:     "menu.render.call",
+		RefinementBillableItem: "menu.render.call",
+		VariationBillableItem:  "menu.render.call",
+		DefaultProvider:        "volcengine",
+	}, platform.New(config.PlatformConfig{
+		BaseURL:               mock.server.URL,
+		Timeout:               time.Second,
+		ServiceName:           "menu-test",
+		InternalServiceSecret: "test-secret",
+	}))
+	t.Cleanup(mock.server.Close)
+	seedStudioTemplateVersion(t, db, "TPL-TH-002", "TPL-TH-002-v1", map[string]string{"zh": "泰式料理营销海报，主体清晰，适合社交媒体传播"}, `{"provider":"volcengine"}`)
+
+	asset, err := service.RegisterAsset("user-1", "org-1", RegisterAssetInput{
+		AssetType:  "source",
+		SourceType: "upload",
+		FileName:   "prompt.jpg",
+		SourceURL:  "https://cdn.example.com/prompt.jpg",
+	})
+	if err != nil {
+		t.Fatalf("RegisterAsset() error = %v", err)
+	}
+
+	_, err = service.CreateGenerationJob("user-1", "org-1", CreateGenerationJobInput{
+		Mode:           "single",
+		SourceAssetIDs: []string{asset.ID},
+		Prompt:         "突出新品和限时促销",
+		Params:         map[string]any{"language": "zh"},
+		Metadata: map[string]any{
+			"template_catalog_id": "TPL-TH-002",
+			"template_version_id": "TPL-TH-002-v1",
+			"execution_profile": map[string]any{
+				"provider":     "volcengine",
+				"style_prompt": "高饱和配色，暖光，俯拍构图",
+			},
+			"creative_source": map[string]any{
+				"source_type":         "template",
+				"source_id":           "TPL-TH-002",
+				"template_id":         "TPL-TH-002",
+				"template_version_id": "TPL-TH-002-v1",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateGenerationJob() error = %v", err)
+	}
+
+	payload := mock.lastRuntimePayload()
+	if payload == nil {
+		t.Fatalf("expected runtime payload to be captured")
+	}
+	rawManifest, _ := payload["input_manifest"].(string)
+	var manifest map[string]any
+	if err := json.Unmarshal([]byte(rawManifest), &manifest); err != nil {
+		t.Fatalf("decode input_manifest: %v", err)
+	}
+	promptSnapshot, _ := manifest["prompt_snapshot"].(map[string]any)
+	if promptSnapshot["system_prompt"] != "泰式料理营销海报，主体清晰，适合社交媒体传播" {
+		t.Fatalf("unexpected system_prompt: %+v", promptSnapshot)
+	}
+	if promptSnapshot["style_prompt"] != "高饱和配色，暖光，俯拍构图" {
+		t.Fatalf("unexpected style_prompt: %+v", promptSnapshot)
+	}
+	if promptSnapshot["user_prompt"] != "突出新品和限时促销" {
+		t.Fatalf("unexpected user_prompt: %+v", promptSnapshot)
+	}
+	if promptSnapshot["prompt_template"] != "泰式料理营销海报，主体清晰，适合社交媒体传播\n\n高饱和配色，暖光，俯拍构图\n\n突出新品和限时促销" {
+		t.Fatalf("unexpected composed prompt: %+v", promptSnapshot)
+	}
+}
+
+func seedStudioTemplateVersion(t *testing.T, db *gorm.DB, catalogID, versionID string, prompts map[string]string, executionProfile string) {
+	t.Helper()
+	if err := db.Create(&models.TemplateCatalog{
+		ID:               catalogID,
+		Slug:             strings.ToLower(catalogID),
+		Name:             catalogID,
+		Status:           "active",
+		Scope:            "public",
+		PlanRequired:     "basic",
+		CurrentVersionID: versionID,
+	}).Error; err != nil {
+		t.Fatalf("create template catalog: %v", err)
+	}
+	promptJSON, _ := json.Marshal(prompts)
+	if err := db.Create(&models.TemplateCatalogVersion{
+		ID:                   versionID,
+		TemplateCatalogID:    catalogID,
+		VersionNo:            1,
+		Status:               "active",
+		PromptTemplatesJSON:  string(promptJSON),
+		ExecutionProfileJSON: executionProfile,
+	}).Error; err != nil {
+		t.Fatalf("create template version: %v", err)
+	}
+}
+
 func TestRegisterAsset_PersistsBase64ToLocalStorage(t *testing.T) {
 	mock := newPlatformMockServer(t)
 	service, _ := newStudioTestServiceWithConfig(t, config.StudioConfig{
 		ProductCode:            "menu",
 		ResourceType:           "credits",
-		SingleBillableItem:     "menu.generate.single",
-		RefinementBillableItem: "menu.generate.refinement",
-		VariationBillableItem:  "menu.generate.variation",
+		SingleBillableItem:     "menu.render.call",
+		RefinementBillableItem: "menu.render.call",
+		VariationBillableItem:  "menu.render.call",
 		DefaultProvider:        "volcengine",
 	}, platform.New(config.PlatformConfig{
 		BaseURL:               mock.server.URL,
@@ -154,6 +393,15 @@ func TestRecordJobResultsAndSelectVariant(t *testing.T) {
 	}
 	if completed.Status != "completed" || completed.Progress != 100 || len(completed.Variants) != 2 {
 		t.Fatalf("unexpected completed job: %+v", completed)
+	}
+	if completed.Variants[0].Asset == nil || completed.Variants[0].Asset.SourceURL == "" {
+		t.Fatalf("expected first variant asset to be hydrated, got %+v", completed.Variants[0])
+	}
+	if completed.Variants[0].PreviewURL == "" {
+		t.Fatalf("expected first variant preview url, got %+v", completed.Variants[0])
+	}
+	if completed.Variants[1].Asset == nil || completed.Variants[1].Asset.SourceURL == "" {
+		t.Fatalf("expected second variant asset to be hydrated, got %+v", completed.Variants[1])
 	}
 
 	selectedVariantID := completed.Variants[1].VariantID
@@ -327,10 +575,10 @@ func TestCreateGenerationJob_WithBillingCreatesReservedChargeIntent(t *testing.T
 	if intent.ID == "" || intent.Status != "reserved" || intent.ReservationID == "" {
 		t.Fatalf("unexpected reserved intent: %+v", intent)
 	}
-	if job.Charge == nil || !job.Charge.Billable || job.Charge.Status != "reserved" || job.Charge.BillableItemCode != "menu.generate.single" {
+	if job.Charge == nil || !job.Charge.Billable || job.Charge.Status != "reserved" || job.Charge.BillableItemCode != "menu.render.call" {
 		t.Fatalf("unexpected charge summary: %+v", job.Charge)
 	}
-	if strings.Join(job.Charge.ChargePriorityAssetCodes, ",") != "MENU_MONTHLY_ALLOWANCE,MENU_PROMO_CREDIT,MENU_CREDIT" {
+	if strings.Join(job.Charge.ChargePriorityAssetCodes, ",") != "MENU_PROMO_CREDIT,MENU_CREDIT" {
 		t.Fatalf("unexpected charge priority: %+v", job.Charge.ChargePriorityAssetCodes)
 	}
 	if platformMock.reserveCalls() != 1 {
@@ -424,9 +672,9 @@ func TestAssetLibrary_ReturnsGeneratedAssetAndShareState(t *testing.T) {
 	service, db := newStudioTestServiceWithConfig(t, config.StudioConfig{
 		ProductCode:            "menu",
 		ResourceType:           "credits",
-		SingleBillableItem:     "menu.generate.single",
-		RefinementBillableItem: "menu.generate.refinement",
-		VariationBillableItem:  "menu.generate.variation",
+		SingleBillableItem:     "menu.render.call",
+		RefinementBillableItem: "menu.render.call",
+		VariationBillableItem:  "menu.render.call",
 	}, platform.New(config.PlatformConfig{
 		BaseURL:               mock.server.URL,
 		Timeout:               time.Second,
@@ -559,9 +807,9 @@ func newBilledStudioTestService(t *testing.T) (*Service, *platformMockServer) {
 	service, _ := newStudioTestServiceWithConfig(t, config.StudioConfig{
 		ProductCode:            "menu",
 		ResourceType:           "credits",
-		SingleBillableItem:     "menu.generate.single",
-		RefinementBillableItem: "menu.generate.refinement",
-		VariationBillableItem:  "menu.generate.variation",
+		SingleBillableItem:     "menu.render.call",
+		RefinementBillableItem: "menu.render.call",
+		VariationBillableItem:  "menu.render.call",
 	}, client)
 	return service, mock
 }
@@ -583,11 +831,17 @@ func newStudioTestServiceWithConfig(t *testing.T, cfg config.StudioConfig, platf
 		&models.GenerationVariant{},
 		&models.StudioChargeIntent{},
 		&models.SharePost{},
+		&models.TemplateCatalog{},
+		&models.TemplateCatalogVersion{},
+		&models.TemplateCatalogExample{},
+		&models.TemplateFavorite{},
+		&models.TemplateUsageEvent{},
 	); err != nil {
 		t.Fatalf("auto migrate: %v", err)
 	}
 	return NewService(
 		repository.NewStudioRepository(db),
+		repository.NewTemplateCenterRepository(db),
 		repository.NewShareRepository(db),
 		repository.NewUserRepository(db),
 		nil,
@@ -610,6 +864,7 @@ type platformMockServer struct {
 	mu            sync.Mutex
 	resolveCount  int
 	runtimeCount  int
+	lastRuntime   map[string]any
 	sessionCount  int
 	reserveCount  int
 	finalizeCount int
@@ -702,7 +957,7 @@ func (m *platformMockServer) handleCreateChargeSession(w http.ResponseWriter, r 
 		"product_code":       "menu-service",
 		"organization_id":    "org-1",
 		"user_id":            "user-1",
-		"billable_item_code": "menu.generate.single",
+		"billable_item_code": "menu.render.call",
 		"resource_type":      "credits",
 		"status":             "created",
 		"reservation_key":    fmt.Sprintf("studio:reservation:job-%d", call),
@@ -719,9 +974,12 @@ func (m *platformMockServer) handleCreateRuntimeJob(w http.ResponseWriter, r *ht
 		http.NotFound(w, r)
 		return
 	}
+	var payload map[string]any
+	_ = json.NewDecoder(r.Body).Decode(&payload)
 	m.mu.Lock()
 	m.runtimeCount++
 	call := m.runtimeCount
+	m.lastRuntime = payload
 	m.mu.Unlock()
 	writePlatformSuccess(w, map[string]any{
 		"id":                fmt.Sprintf("runtime-job-%d", call),
@@ -749,6 +1007,17 @@ func (m *platformMockServer) handleCreateRuntimeJob(w http.ResponseWriter, r *ht
 	})
 }
 
+func (m *platformMockServer) lastRuntimePayload() map[string]any {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.lastRuntime == nil {
+		return nil
+	}
+	out := make(map[string]any, len(m.lastRuntime))
+	maps.Copy(out, m.lastRuntime)
+	return out
+}
+
 func (m *platformMockServer) handleReserve(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.NotFound(w, r)
@@ -763,7 +1032,7 @@ func (m *platformMockServer) handleReserve(w http.ResponseWriter, r *http.Reques
 		"resource_type":        "credits",
 		"billing_subject_type": "organization",
 		"billing_subject_id":   "org-1",
-		"billable_item_code":   "menu.generate.single",
+		"billable_item_code":   "menu.render.call",
 		"units":                1,
 		"status":               "reserved",
 		"reference_id":         fmt.Sprintf("intent-%d", call),

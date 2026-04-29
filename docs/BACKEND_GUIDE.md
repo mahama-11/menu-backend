@@ -37,6 +37,9 @@ Should not belong here:
 When Menu AI needs shared identity or platform data, call the platform service through stable APIs.
 Do not duplicate platform tables as a second source of truth.
 
+When querying shared wallet, reward, commission, discount, settlement, or usage data from platform, Menu must always pass `product_code=menu` and keep product scope explicit in Menu-side aggregation logic.
+Do not depend on subject-only platform reads that can widen to cross-product data, and do not use any all-product query mode in normal Menu product flows.
+
 ## 4. Engineering Status
 
 - Go service runtime is active as the Menu product backend rather than a placeholder skeleton
@@ -65,6 +68,7 @@ Do not duplicate platform tables as a second source of truth.
 - Growth and wallet productization now go beyond simple balances: Menu exposes frontend-ready referral code sharing contracts (`invite_url`, `signup_url`, `share_text`) plus a unified `wallet-history` feed that aggregates rewards, commissions, expirations, recharge-like balance adjustments, and Studio charge records so frontend can build wallet, invite, redeem, and billing-history pages without stitching platform ledgers ad hoc.
 - Retrieval and publishing are now treated as first-class product capabilities instead of leaving old outputs buried inside raw tables: Menu exposes an asset library view, a job/result history view, an audit history view, and a separate `share/posts` publishing boundary so future sharing, engagement, and share-based growth mechanics can evolve without polluting `StudioAsset` / `GenerationJob` truth.
 - Share capability should now be treated as a product-owned universal sharing layer rather than a thin "copy URL" helper only: Menu exposes publishable `share/posts`, public share pages by token, authenticated engagement state, and product-owned like/favorite interactions while leaving external social-network publishing itself as platform-specific adapters layered above this boundary.
+- Template center is now a real Menu-owned backend module rather than document-only planning: startup bootstraps embedded seed catalogs into Menu tables, frontend-facing routes are exposed under `/api/v1/menu/template-center/*`, and current `use` behavior returns a prefilled Studio job handoff instead of directly generating final images inside the template-center route.
 - Engineering baseline is now treated as non-optional infrastructure rather than future polish: Menu initializes structured JSON logging, tracing provider bootstrap, request-scoped `request_id` / `trace_id`, Prometheus-standard metrics exposure, structured access logs, handler-level OTel spans on core product APIs, and audit persistence for key mutations such as register, login, profile update, referral code creation, and referral commission redemption.
 - Database governance is now expected to follow the same baseline: Menu schema migration should be driven from `internal/storage` under `database.auto_migrate_enabled`, and all Menu-owned tables should use the configured `database.table_prefix` (default `menu_`) so cross-project shared databases stay understandable and operable over time.
 - To keep that rule enforceable rather than aspirational, CI guardrails should block new `gorm.Open(...)` usage outside `internal/storage` and block custom `TableName()` overrides inside `internal/models`. Table naming must stay centrally controlled by the Menu naming strategy and migration entrypoint.
