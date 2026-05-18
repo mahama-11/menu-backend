@@ -102,10 +102,10 @@ func parseTemplateLibraryDocForTest(t *testing.T) *TemplateSeedLibrary {
 	if !ok {
 		t.Fatalf("runtime.Caller failed")
 	}
-	docPath := filepath.Join(filepath.Dir(currentFile), "..", "..", "..", "..", "docs", "TEMPLATE_LIBRARY_DOC.md")
+	docPath := filepath.Join(filepath.Dir(currentFile), "testdata", "template_library_doc.md")
 	payload, err := os.ReadFile(docPath)
 	if err != nil {
-		t.Fatalf("read template library doc: %v", err)
+		t.Fatalf("read template library test fixture: %v", err)
 	}
 	library, err := ParseTemplateLibraryMarkdown(string(payload))
 	if err != nil {
