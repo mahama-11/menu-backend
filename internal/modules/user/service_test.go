@@ -419,6 +419,7 @@ type userPlatformMockServer struct {
 	lastLedgerPost     *platform.PostWalletLedgerInput
 	lastCycleAllowance *platform.GrantCycleAllowanceInput
 	quotaGrants        []platform.GrantQuotaInput
+	packageActivations []platform.ActivatePackageInput
 	capabilityGrants   []platform.GrantCapabilityInput
 	summaryByOrg       map[string]map[string]any
 	reservations       []platform.ReserveInput
@@ -438,6 +439,7 @@ func newUserPlatformMockServer(t *testing.T) *userPlatformMockServer {
 	mux.HandleFunc("/internal/v1/catalog/offerings", mock.handleCatalogOfferings)
 	mux.HandleFunc("/internal/v1/controls/quota/policies", mock.handleQuotaPolicies)
 	mux.HandleFunc("/internal/v1/controls/quota/grants", mock.handleQuotaGrants)
+	mux.HandleFunc("/internal/v1/controls/package-activations", mock.handlePackageActivations)
 	mux.HandleFunc("/internal/v1/controls/capability/policies", mock.handleCapabilityPolicies)
 	mux.HandleFunc("/internal/v1/controls/capability/grants", mock.handleCapabilityGrants)
 	mux.HandleFunc("/internal/v1/controls/reservations", mock.handleReservations)
@@ -655,6 +657,42 @@ func (m *userPlatformMockServer) handleQuotaGrants(w http.ResponseWriter, r *htt
 		"id": "quota-ledger-1", "billing_subject_type": req.BillingSubjectType, "billing_subject_id": req.BillingSubjectID,
 		"billable_item_code": req.BillableItemCode, "units": req.Units, "direction": "grant", "status": "active",
 		"created_at": time.Now().UTC().Format(time.RFC3339), "updated_at": time.Now().UTC().Format(time.RFC3339),
+	})
+}
+
+func (m *userPlatformMockServer) handlePackageActivations(w http.ResponseWriter, r *http.Request) {
+	var req platform.ActivatePackageInput
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	units := int64(0)
+	switch req.PackageCode {
+	case "menu.pkg.sub.basic.monthly":
+		units = 300
+	case "menu.pkg.pack.permanent.basic":
+		units = 100
+	case "menu.pkg.trial.signup":
+		units = 5
+	}
+	m.mu.Lock()
+	m.packageActivations = append(m.packageActivations, req)
+	m.quotaGrants = append(m.quotaGrants, platform.GrantQuotaInput{
+		BillingSubjectType: req.BillingSubjectType,
+		BillingSubjectID:   req.BillingSubjectID,
+		BillableItemCode:   "menu.render.call",
+		Units:              units,
+		Reason:             req.ActivationReason,
+		ReferenceID:        req.ReferenceID,
+	})
+	m.mu.Unlock()
+	writeUserPlatformSuccess(w, map[string]any{
+		"product_code": req.ProductCode, "package_code": req.PackageCode,
+		"billing_subject_type": req.BillingSubjectType, "billing_subject_id": req.BillingSubjectID,
+		"activation_reason": req.ActivationReason, "reference_id": req.ReferenceID,
+		"granted_quota_units": units, "idempotent": false,
+		"quota_grants":      []map[string]any{{"id": "quota-ledger-activation", "billable_item_code": "menu.render.call", "units": units}},
+		"capability_grants": []map[string]any{},
 	})
 }
 

@@ -7,6 +7,7 @@ This guide defines the current product scope and engineering baseline of `v-menu
 ## 1.1 Documentation Index
 
 - [openapi/README.md](openapi/README.md): Swagger/OpenAPI generation for frontend-facing Menu APIs
+- [qa/CRITICAL_JOURNEYS.md](qa/CRITICAL_JOURNEYS.md): P0/P1 Menu critical journey acceptance, smoke commands, and PASS/BLOCKED status vocabulary
 - [architecture/CHANNEL_PLATFORM_INTEGRATION.md](architecture/CHANNEL_PLATFORM_INTEGRATION.md): Menu-side channel binding, charge/refund reporting, and product aggregation integration with platform channel revenue share
 - [DB_MIGRATION_GOVERNANCE.md](../../docs/architecture/DB_MIGRATION_GOVERNANCE.md): platform/menu 当前数据库迁移风险、临时补丁与后续治理方向
 

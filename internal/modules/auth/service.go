@@ -120,6 +120,13 @@ func (s *Service) Register(input RegisterInput) (*AuthResult, error) {
 		_, _ = s.repo.UpsertPreference(authResult.User.ID, authResult.User.OrgID, "en")
 	}
 
+	if err := s.ensureSignupPackageActivated(authResult.User, "register"); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(s.appCfg.SignupPackageCode) != "" {
+		result.Credits = s.buildCreditsSummary(authResult.User.OrgID, authResult.User.PlanID)
+	}
+
 	if s.appCfg.SignupBonusCredits > 0 {
 		_, rewardErr := s.platform.CreateReward(platform.CreateRewardInput{
 			ProductCode:            "menu",
@@ -211,6 +218,41 @@ func (s *Service) Register(input RegisterInput) (*AuthResult, error) {
 	return result, nil
 }
 
+func (s *Service) ensureSignupPackageActivated(user platform.PlatformUserProfile, source string) error {
+	packageCode := strings.TrimSpace(s.appCfg.SignupPackageCode)
+	if packageCode == "" {
+		return nil
+	}
+	_, activationErr := s.platform.ActivatePackage(platform.ActivatePackageInput{
+		ProductCode:        "menu",
+		PackageCode:        packageCode,
+		BillingSubjectType: "organization",
+		BillingSubjectID:   user.OrgID,
+		ActivationReason:   "signup_trial",
+		ReferenceID:        fmt.Sprintf("menu:signup_package:%s:%s", packageCode, user.OrgID),
+	})
+	status := "succeeded"
+	errorMessage := ""
+	if activationErr != nil {
+		status = "failed"
+		errorMessage = activationErr.Error()
+		logger.With("user_id", user.ID, "org_id", user.OrgID, "package_code", packageCode, "source", source, "error", activationErr).Error("auth.signup_package_activation_failed")
+	}
+	if s.repo != nil {
+		_ = s.repo.CreateActivity(&models.Activity{
+			UserID:         user.ID,
+			OrganizationID: user.OrgID,
+			ActionType:     "signup_package_activation",
+			ActionName:     "Signup Package Activation",
+			Status:         status,
+			CreditsUsed:    0,
+			ErrorMessage:   errorMessage,
+			EventID:        packageCode,
+		})
+	}
+	return activationErr
+}
+
 func (s *Service) Login(input LoginInput) (*AuthResult, error) {
 	authResult, err := s.platform.Login(platform.AuthLoginInput{
 		Email:    input.Email,
@@ -223,6 +265,9 @@ func (s *Service) Login(input LoginInput) (*AuthResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Login recovery must not make every returning user depend on package-activation availability.
+	// The activation endpoint is idempotent, so retry opportunistically and record failures via activity/logs.
+	_ = s.ensureSignupPackageActivated(authResult.User, "login")
 	return &AuthResult{
 		AccessToken: authResult.AccessToken,
 		User:        s.buildUserSummary(authResult.User, currentOrgName(authResult.User), ""),

@@ -612,59 +612,23 @@ func (s *Service) AssignCommercialPackage(actorUserID, orgID string, input Assig
 		"assigned_by_user_id":  actorUserID,
 		"assigned_from_org_id": orgID,
 	}
-	quotaPolicies, err := s.platform.ListQuotaGrantPolicies("menu", pkg.Code)
+	activationMetadata, err := encodeMap(mergeMaps(baseMetadata, inputMetadata))
 	if err != nil {
 		return nil, err
 	}
-	capabilityPolicies, err := s.platform.ListPackageCapabilityPolicies("menu", pkg.Code)
+	activation, err := s.platform.ActivatePackage(platform.ActivatePackageInput{
+		ProductCode:        "menu",
+		PackageCode:        pkg.Code,
+		BillingSubjectType: "organization",
+		BillingSubjectID:   targetOrgID,
+		ActivationReason:   defaultString(stringMapValue(inputMetadata, "activation_reason"), "commercial_package_assignment"),
+		ReferenceID:        referenceID,
+		Metadata:           json.RawMessage(activationMetadata),
+	})
 	if err != nil {
 		return nil, err
 	}
-	if len(quotaPolicies) == 0 {
-		return nil, fmt.Errorf("quota grant policy not found for package: %s", packageCode)
-	}
-	var grantedUnits int64
-	for _, policy := range quotaPolicies {
-		if policy.Status != "active" || policy.Units <= 0 {
-			continue
-		}
-		if err := s.platform.GrantQuota(platform.GrantQuotaInput{
-			BillingSubjectType: "organization",
-			BillingSubjectID:   targetOrgID,
-			BillableItemCode:   policy.BillableItemCode,
-			Units:              policy.Units,
-			Reason:             "commercial_package_assignment",
-			ReferenceID:        referenceID,
-		}); err != nil {
-			return nil, err
-		}
-		grantedUnits += policy.Units
-	}
-	for _, policy := range capabilityPolicies {
-		if policy.Status != "active" || strings.TrimSpace(policy.GrantValue) == "" {
-			continue
-		}
-		metadataJSON, err := encodeMap(mergeMaps(
-			baseMetadata,
-			inputMetadata,
-			map[string]any{"capability_policy_id": policy.ID},
-		))
-		if err != nil {
-			return nil, err
-		}
-		if _, err := s.platform.GrantCapability(platform.GrantCapabilityInput{
-			ProductCode:        "menu",
-			BillingSubjectType: "organization",
-			BillingSubjectID:   targetOrgID,
-			CapabilityCode:     policy.CapabilityCode,
-			GrantValue:         policy.GrantValue,
-			SourceType:         "commercial_package",
-			SourceID:           referenceID,
-			Metadata:           metadataJSON,
-		}); err != nil {
-			return nil, err
-		}
-	}
+	grantedUnits := activation.GrantedQuotaUnits
 	summary, _ := s.platform.GetWalletSummary("organization", targetOrgID, "menu")
 	return &AssignCommercialPackageResult{
 		TargetOrgID:       targetOrgID,

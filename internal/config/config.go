@@ -36,6 +36,7 @@ type VolcengineConfig struct {
 type AppConfig struct {
 	FrontendBaseURL    string `mapstructure:"frontend_base_url"`
 	SignupBonusCredits int64  `mapstructure:"signup_bonus_credits"`
+	SignupPackageCode  string `mapstructure:"signup_package_code"`
 	CreditsAssetCode   string `mapstructure:"credits_asset_code"`
 	RewardAssetCode    string `mapstructure:"reward_asset_code"`
 	AllowanceAssetCode string `mapstructure:"allowance_asset_code"`
@@ -162,6 +163,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("use_mock", false)
 	v.SetDefault("app.frontend_base_url", "http://localhost:5173")
 	v.SetDefault("app.signup_bonus_credits", 20)
+	v.SetDefault("app.signup_package_code", "menu.pkg.trial.signup")
 	v.SetDefault("app.credits_asset_code", "MENU_CREDIT")
 	v.SetDefault("app.reward_asset_code", "MENU_PROMO_CREDIT")
 	v.SetDefault("app.allowance_asset_code", "MENU_MONTHLY_ALLOWANCE")

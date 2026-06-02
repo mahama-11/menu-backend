@@ -1124,6 +1124,10 @@ func (c *Client) GrantQuota(input GrantQuotaInput) error {
 	return err
 }
 
+func (c *Client) ActivatePackage(input ActivatePackageInput) (*PackageActivationResult, error) {
+	return doPost[ActivatePackageInput, PackageActivationResult](c, "/controls/package-activations", input)
+}
+
 func (c *Client) GetQuotaBalance(subjectType, subjectID, billableItemCode string) (*QuotaBalance, error) {
 	return doGet[QuotaBalance](c, withQuery("/controls/quota/balance", map[string]string{
 		"billing_subject_type": subjectType,

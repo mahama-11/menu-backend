@@ -12,6 +12,7 @@ func TestNormalizeRuntimeProviderCode(t *testing.T) {
 		{name: "default", input: "default", expected: ""},
 		{name: "default mixed case", input: " Default ", expected: ""},
 		{name: "explicit provider", input: "comfyui_bridge", expected: "comfyui_bridge"},
+		{name: "legacy comfyui alias", input: " comfyui ", expected: "comfyui_bridge"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

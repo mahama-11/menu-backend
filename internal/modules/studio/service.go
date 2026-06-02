@@ -1802,11 +1802,14 @@ func defaultStageMessage(stage, status string) string {
 }
 
 func normalizeRuntimeProviderCode(provider string) string {
-	switch strings.TrimSpace(strings.ToLower(provider)) {
+	trimmed := strings.TrimSpace(provider)
+	switch strings.ToLower(trimmed) {
 	case "", "default":
 		return ""
+	case "comfyui":
+		return "comfyui_bridge"
 	default:
-		return provider
+		return trimmed
 	}
 }
 
