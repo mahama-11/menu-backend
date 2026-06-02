@@ -50,11 +50,15 @@ Then run:
 ./scripts/gen-swagger.sh
 ```
 
-Generated output will be written to:
+Generated JSON/YAML contract output will be written to:
 
 ```bash
 docs/openapi/
 ```
+
+The generator intentionally uses `--outputTypes json,yaml` so routine API
+contract refreshes do not rewrite `docs.go`, a large generated Go source file.
+Menu runtime and frontend integration consume the OpenAPI JSON/YAML contracts.
 
 ## Notes
 

@@ -22,6 +22,19 @@ func NewHandler(service *Service, auditService *audit.Service) *Handler {
 	return &Handler{service: service, audit: auditService}
 }
 
+// ListAssets godoc
+// @Summary List Studio assets
+// @Description List source/generated/mask/reference Studio assets for the current Menu organization.
+// @Tags Studio
+// @Produce json
+// @Security BearerAuth
+// @Param asset_type query string false "Filter by asset type: source, generated, mask, reference"
+// @Param status query string false "Filter by asset status"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /api/v1/menu/studio/assets [get]
 func (h *Handler) ListAssets(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/studio-handler", "menu.studio.assets.list")
 	defer span.End()
@@ -35,6 +48,22 @@ func (h *Handler) ListAssets(c *gin.Context) {
 	response.JSONSuccess(c, gin.H{"items": items})
 }
 
+// AssetLibrary godoc
+// @Summary List Studio asset library
+// @Description Return library-ready assets with latest job/share context for Menu retrieval UX.
+// @Tags Studio
+// @Produce json
+// @Security BearerAuth
+// @Param asset_type query string false "Filter by asset type"
+// @Param status query string false "Filter by status"
+// @Param query query string false "Search query"
+// @Param limit query int false "Page size"
+// @Param offset query int false "Offset"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /api/v1/menu/studio/library/assets [get]
 func (h *Handler) AssetLibrary(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/studio-handler", "menu.studio.library.assets")
 	defer span.End()
@@ -56,6 +85,21 @@ func (h *Handler) AssetLibrary(c *gin.Context) {
 	response.JSONSuccess(c, result)
 }
 
+// RegisterAsset godoc
+// @Summary Register a Studio asset
+// @Description Register a Menu-owned Studio asset after upload/import; platform storage remains the storage truth.
+// @Tags Studio
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body RegisterAssetInput true "Studio asset registration request"
+// @Success 201 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 503 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /api/v1/menu/studio/assets [post]
 func (h *Handler) RegisterAsset(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/studio-handler", "menu.studio.asset.register")
 	defer span.End()
@@ -114,6 +158,19 @@ func (h *Handler) GetAssetContent(c *gin.Context) {
 	}
 }
 
+// ListStylePresets godoc
+// @Summary List Studio style presets
+// @Description List reusable Menu style presets for Template Center and Studio job creation.
+// @Tags Studio
+// @Produce json
+// @Security BearerAuth
+// @Param visibility query string false "Filter by visibility"
+// @Param status query string false "Filter by status"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /api/v1/menu/studio/styles [get]
 func (h *Handler) ListStylePresets(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/studio-handler", "menu.studio.styles.list")
 	defer span.End()
@@ -127,6 +184,20 @@ func (h *Handler) ListStylePresets(c *gin.Context) {
 	response.JSONSuccess(c, gin.H{"items": items})
 }
 
+// CreateStylePreset godoc
+// @Summary Create a Studio style preset
+// @Description Create an organization/private/public style preset used by Menu Studio jobs.
+// @Tags Studio
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body CreateStylePresetInput true "Style preset create request"
+// @Success 201 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /api/v1/menu/studio/styles [post]
 func (h *Handler) CreateStylePreset(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/studio-handler", "menu.studio.style.create")
 	defer span.End()
@@ -155,6 +226,18 @@ func (h *Handler) CreateStylePreset(c *gin.Context) {
 	response.JSONSuccessWithStatus(c, 201, item)
 }
 
+// GetStylePreset godoc
+// @Summary Get a Studio style preset
+// @Description Fetch a single style preset by style ID.
+// @Tags Studio
+// @Produce json
+// @Security BearerAuth
+// @Param styleID path string true "Style preset ID"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Router /api/v1/menu/studio/styles/{styleID} [get]
 func (h *Handler) GetStylePreset(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/studio-handler", "menu.studio.style.get")
 	defer span.End()
@@ -168,6 +251,21 @@ func (h *Handler) GetStylePreset(c *gin.Context) {
 	response.JSONSuccess(c, item)
 }
 
+// ForkStylePreset godoc
+// @Summary Fork a Studio style preset
+// @Description Derive a new style preset from an existing preset.
+// @Tags Studio
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param styleID path string true "Source style preset ID"
+// @Param request body ForkStylePresetInput true "Style preset fork request"
+// @Success 201 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /api/v1/menu/studio/styles/{styleID}/fork [post]
 func (h *Handler) ForkStylePreset(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/studio-handler", "menu.studio.style.fork")
 	defer span.End()
@@ -196,6 +294,18 @@ func (h *Handler) ForkStylePreset(c *gin.Context) {
 	response.JSONSuccessWithStatus(c, 201, item)
 }
 
+// ListGenerationJobs godoc
+// @Summary List Studio generation jobs
+// @Description List Menu Studio generation jobs for the current user/org.
+// @Tags Studio
+// @Produce json
+// @Security BearerAuth
+// @Param status query string false "Filter by job status"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /api/v1/menu/studio/jobs [get]
 func (h *Handler) ListGenerationJobs(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/studio-handler", "menu.studio.jobs.list")
 	defer span.End()
@@ -209,6 +319,20 @@ func (h *Handler) ListGenerationJobs(c *gin.Context) {
 	response.JSONSuccess(c, gin.H{"items": items})
 }
 
+// JobHistory godoc
+// @Summary List Studio job history
+// @Description Return job/result history with source/result assets for Menu History and Library UX.
+// @Tags Studio
+// @Produce json
+// @Security BearerAuth
+// @Param status query string false "Filter by job status"
+// @Param limit query int false "Page size"
+// @Param offset query int false "Offset"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /api/v1/menu/studio/history/jobs [get]
 func (h *Handler) JobHistory(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/studio-handler", "menu.studio.history.jobs")
 	defer span.End()
@@ -222,6 +346,22 @@ func (h *Handler) JobHistory(c *gin.Context) {
 	response.JSONSuccess(c, result)
 }
 
+// CreateGenerationJob godoc
+// @Summary Create a Studio generation job
+// @Description Create a Menu Studio generation job. Input mode is resolved from template/source assets; multi-image jobs preserve role-aware source_assets and fail closed when unsupported.
+// @Tags Studio
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body CreateGenerationJobInput true "Studio generation job request"
+// @Success 201 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 409 {object} response.ErrorResponse
+// @Failure 503 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /api/v1/menu/studio/jobs [post]
 func (h *Handler) CreateGenerationJob(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/studio-handler", "menu.studio.job.create")
 	defer span.End()
@@ -250,6 +390,18 @@ func (h *Handler) CreateGenerationJob(c *gin.Context) {
 	response.JSONSuccessWithStatus(c, 201, item)
 }
 
+// GetGenerationJob godoc
+// @Summary Get a Studio generation job
+// @Description Fetch a generation job with variants, charge snapshot, source asset identity, and staged runtime state.
+// @Tags Studio
+// @Produce json
+// @Security BearerAuth
+// @Param jobID path string true "Generation job ID"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Router /api/v1/menu/studio/jobs/{jobID} [get]
 func (h *Handler) GetGenerationJob(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/studio-handler", "menu.studio.job.get")
 	defer span.End()
@@ -354,6 +506,21 @@ func (h *Handler) RecordJobResults(c *gin.Context) {
 	response.JSONSuccess(c, item)
 }
 
+// SelectVariant godoc
+// @Summary Select a generation variant
+// @Description Mark one generated variant as the selected Menu result.
+// @Tags Studio
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param jobID path string true "Generation job ID"
+// @Param request body SelectVariantInput true "Variant selection request"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /api/v1/menu/studio/jobs/{jobID}/select-variant [post]
 func (h *Handler) SelectVariant(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/studio-handler", "menu.studio.job.select_variant")
 	defer span.End()
@@ -382,6 +549,18 @@ func (h *Handler) SelectVariant(c *gin.Context) {
 	response.JSONSuccess(c, item)
 }
 
+// CancelGenerationJob godoc
+// @Summary Cancel a Studio generation job
+// @Description Cancel a queued/running generation job and keep frontend state honest.
+// @Tags Studio
+// @Produce json
+// @Security BearerAuth
+// @Param jobID path string true "Generation job ID"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /api/v1/menu/studio/jobs/{jobID}/cancel [post]
 func (h *Handler) CancelGenerationJob(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/studio-handler", "menu.studio.job.cancel")
 	defer span.End()
@@ -404,6 +583,19 @@ func (h *Handler) CancelGenerationJob(c *gin.Context) {
 	response.JSONSuccess(c, item)
 }
 
+// InternalUpdateJobRuntime godoc
+// @Summary Update Studio job runtime state
+// @Description Internal worker/runtime callback for staged Menu Studio job progress. Not for browser clients.
+// @Tags StudioInternal
+// @Accept json
+// @Produce json
+// @Param jobID path string true "Generation job ID"
+// @Param request body UpdateJobRuntimeInput true "Runtime state update request"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /internal/v1/menu/studio/jobs/{jobID}/runtime [post]
 func (h *Handler) InternalUpdateJobRuntime(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/studio-handler", "menu.studio.internal.runtime_update")
 	defer span.End()
@@ -424,6 +616,19 @@ func (h *Handler) InternalUpdateJobRuntime(c *gin.Context) {
 	response.JSONSuccess(c, item)
 }
 
+// InternalRecordJobResults godoc
+// @Summary Record Studio job results
+// @Description Internal worker/provider callback for completed/failed Menu Studio job results. Not for browser clients.
+// @Tags StudioInternal
+// @Accept json
+// @Produce json
+// @Param jobID path string true "Generation job ID"
+// @Param request body RecordJobResultsInput true "Job result callback request"
+// @Success 200 {object} response.SuccessResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Router /internal/v1/menu/studio/jobs/{jobID}/results [post]
 func (h *Handler) InternalRecordJobResults(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/studio-handler", "menu.studio.internal.record_results")
 	defer span.End()

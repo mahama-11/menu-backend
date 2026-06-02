@@ -642,6 +642,1260 @@
                 }
             }
         },
+        "/api/v1/menu/studio/assets": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "List source/generated/mask/reference Studio assets for the current Menu organization.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Studio"
+                ],
+                "summary": "List Studio assets",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by asset type: source, generated, mask, reference",
+                        "name": "asset_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by asset status",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Register a Menu-owned Studio asset after upload/import; platform storage remains the storage truth.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Studio"
+                ],
+                "summary": "Register a Studio asset",
+                "parameters": [
+                    {
+                        "description": "Studio asset registration request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_studio.RegisterAssetInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/menu/studio/history/jobs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Return job/result history with source/result assets for Menu History and Library UX.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Studio"
+                ],
+                "summary": "List Studio job history",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by job status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/menu/studio/jobs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "List Menu Studio generation jobs for the current user/org.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Studio"
+                ],
+                "summary": "List Studio generation jobs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by job status",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a Menu Studio generation job. Input mode is resolved from template/source assets; multi-image jobs preserve role-aware source_assets and fail closed when unsupported.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Studio"
+                ],
+                "summary": "Create a Studio generation job",
+                "parameters": [
+                    {
+                        "description": "Studio generation job request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_studio.CreateGenerationJobInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/menu/studio/jobs/{jobID}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Fetch a generation job with variants, charge snapshot, source asset identity, and staged runtime state.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Studio"
+                ],
+                "summary": "Get a Studio generation job",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Generation job ID",
+                        "name": "jobID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/menu/studio/jobs/{jobID}/cancel": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cancel a queued/running generation job and keep frontend state honest.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Studio"
+                ],
+                "summary": "Cancel a Studio generation job",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Generation job ID",
+                        "name": "jobID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/menu/studio/jobs/{jobID}/select-variant": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mark one generated variant as the selected Menu result.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Studio"
+                ],
+                "summary": "Select a generation variant",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Generation job ID",
+                        "name": "jobID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Variant selection request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_studio.SelectVariantInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/menu/studio/library/assets": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Return library-ready assets with latest job/share context for Menu retrieval UX.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Studio"
+                ],
+                "summary": "List Studio asset library",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by asset type",
+                        "name": "asset_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search query",
+                        "name": "query",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/menu/studio/styles": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "List reusable Menu style presets for Template Center and Studio job creation.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Studio"
+                ],
+                "summary": "List Studio style presets",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by visibility",
+                        "name": "visibility",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by status",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create an organization/private/public style preset used by Menu Studio jobs.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Studio"
+                ],
+                "summary": "Create a Studio style preset",
+                "parameters": [
+                    {
+                        "description": "Style preset create request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_studio.CreateStylePresetInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/menu/studio/styles/{styleID}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Fetch a single style preset by style ID.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Studio"
+                ],
+                "summary": "Get a Studio style preset",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Style preset ID",
+                        "name": "styleID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/menu/studio/styles/{styleID}/fork": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Derive a new style preset from an existing preset.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Studio"
+                ],
+                "summary": "Fork a Studio style preset",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Source style preset ID",
+                        "name": "styleID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Style preset fork request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_studio.ForkStylePresetInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/menu/template-center/catalog": {
+            "get": {
+                "description": "List restaurant marketing templates with structured business inputs and target outputs.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "TemplateCenter"
+                ],
+                "summary": "List Template Center catalog",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cuisine filter",
+                        "name": "cuisine",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Dish type filter",
+                        "name": "dish_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Target platform filter",
+                        "name": "platform",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Mood filter",
+                        "name": "mood",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search query",
+                        "name": "query",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Plan filter",
+                        "name": "plan",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/menu/template-center/catalog/{templateID}": {
+            "get": {
+                "description": "Get one template with input_slots, target_outputs, strategy_policy, and execution profile.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "TemplateCenter"
+                ],
+                "summary": "Get Template Center catalog detail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Template ID",
+                        "name": "templateID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Plan context",
+                        "name": "plan",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/menu/template-center/catalog/{templateID}/copy-to-my-templates": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Copy a Template Center catalog item into an editable Studio style preset.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "TemplateCenter"
+                ],
+                "summary": "Copy catalog template to my templates",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Template ID",
+                        "name": "templateID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Copy template request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_templatecenter.CopyTemplateInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/menu/template-center/catalog/{templateID}/use": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Resolve Template Center context into a prefilled Studio job with strategy and role-aware source assets.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "TemplateCenter"
+                ],
+                "summary": "Prepare template usage",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Template ID",
+                        "name": "templateID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Plan context",
+                        "name": "plan",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Template use request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_templatecenter.UseTemplateInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/menu/template-center/favorites": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "List current organization/user favorite Template Center items.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "TemplateCenter"
+                ],
+                "summary": "List favorite templates",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Plan context",
+                        "name": "plan",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/menu/template-center/favorites/{templateID}": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mark a Template Center item as favorite for the current org/user.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "TemplateCenter"
+                ],
+                "summary": "Favorite a template",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Template ID",
+                        "name": "templateID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Remove a Template Center favorite for the current org/user.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "TemplateCenter"
+                ],
+                "summary": "Remove template favorite",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Template ID",
+                        "name": "templateID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/menu/template-center/meta": {
+            "get": {
+                "description": "Return Template Center filter metadata such as cuisines, platforms, moods, and plans.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "TemplateCenter"
+                ],
+                "summary": "Get Template Center metadata",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/menu/user/activities": {
             "get": {
                 "security": [
@@ -817,6 +2071,124 @@
                     }
                 }
             }
+        },
+        "/internal/v1/menu/studio/jobs/{jobID}/results": {
+            "post": {
+                "description": "Internal worker/provider callback for completed/failed Menu Studio job results. Not for browser clients.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "StudioInternal"
+                ],
+                "summary": "Record Studio job results",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Generation job ID",
+                        "name": "jobID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Job result callback request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_studio.RecordJobResultsInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/internal/v1/menu/studio/jobs/{jobID}/runtime": {
+            "post": {
+                "description": "Internal worker/runtime callback for staged Menu Studio job progress. Not for browser clients.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "StudioInternal"
+                ],
+                "summary": "Update Studio job runtime state",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Generation job ID",
+                        "name": "jobID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Runtime state update request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_studio.UpdateJobRuntimeInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/menu-service_pkg_response.ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -844,6 +2216,9 @@
                 "restaurant_name"
             ],
             "properties": {
+                "channel_code": {
+                    "type": "string"
+                },
                 "email": {
                     "type": "string"
                 },
@@ -894,6 +2269,431 @@
                 }
             }
         },
+        "internal_modules_studio.CreateGenerationJobInput": {
+            "type": "object",
+            "required": [
+                "mode"
+            ],
+            "properties": {
+                "generation_strategy": {
+                    "type": "string"
+                },
+                "idempotency_key": {
+                    "type": "string"
+                },
+                "input_mode": {
+                    "type": "string",
+                    "enum": [
+                        "text_to_image",
+                        "image_to_image",
+                        "multi_image",
+                        "image_edit",
+                        "ask_for_required_input"
+                    ]
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": [
+                        "single",
+                        "batch",
+                        "variation",
+                        "refinement"
+                    ]
+                },
+                "params": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "parent_job_id": {
+                    "type": "string"
+                },
+                "parent_variant_id": {
+                    "type": "string"
+                },
+                "prompt": {
+                    "type": "string"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "requested_variants": {
+                    "type": "integer"
+                },
+                "source_asset_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "source_assets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_modules_studio.SourceAssetInput"
+                    }
+                },
+                "style_preset_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_studio.CreateStylePresetInput": {
+            "type": "object",
+            "required": [
+                "name",
+                "visibility"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "dimensions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_modules_studio.StyleDimension"
+                    }
+                },
+                "execution_profile": {
+                    "$ref": "#/definitions/internal_modules_studio.StyleExecutionProfile"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "name": {
+                    "type": "string"
+                },
+                "preview_asset_id": {
+                    "type": "string"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "visibility": {
+                    "type": "string",
+                    "enum": [
+                        "private",
+                        "organization",
+                        "public"
+                    ]
+                }
+            }
+        },
+        "internal_modules_studio.ForkStylePresetInput": {
+            "type": "object",
+            "properties": {
+                "execution_profile": {
+                    "$ref": "#/definitions/internal_modules_studio.StyleExecutionProfile"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "visibility": {
+                    "type": "string",
+                    "enum": [
+                        "private",
+                        "organization",
+                        "public"
+                    ]
+                }
+            }
+        },
+        "internal_modules_studio.RecordJobResultsInput": {
+            "type": "object",
+            "required": [
+                "status"
+            ],
+            "properties": {
+                "error_code": {
+                    "type": "string"
+                },
+                "error_message": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "progress": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "processing",
+                        "completed",
+                        "failed",
+                        "canceled"
+                    ]
+                },
+                "variants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_modules_studio.RecordJobVariantInput"
+                    }
+                }
+            }
+        },
+        "internal_modules_studio.RecordJobVariantInput": {
+            "type": "object",
+            "required": [
+                "index",
+                "status"
+            ],
+            "properties": {
+                "asset": {
+                    "$ref": "#/definitions/internal_modules_studio.RegisterAssetInput"
+                },
+                "index": {
+                    "type": "integer"
+                },
+                "is_selected": {
+                    "type": "boolean"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "parent_variant_id": {
+                    "type": "string"
+                },
+                "score": {
+                    "type": "number"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "ready",
+                        "failed"
+                    ]
+                }
+            }
+        },
+        "internal_modules_studio.RegisterAssetInput": {
+            "type": "object",
+            "required": [
+                "asset_type",
+                "source_type"
+            ],
+            "properties": {
+                "asset_type": {
+                    "type": "string",
+                    "enum": [
+                        "source",
+                        "generated",
+                        "mask",
+                        "reference"
+                    ]
+                },
+                "file_name": {
+                    "type": "string"
+                },
+                "file_size": {
+                    "type": "integer"
+                },
+                "height": {
+                    "type": "integer"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "mime_type": {
+                    "type": "string"
+                },
+                "preview_url": {
+                    "type": "string"
+                },
+                "source_type": {
+                    "type": "string",
+                    "enum": [
+                        "upload",
+                        "import",
+                        "generated"
+                    ]
+                },
+                "source_url": {
+                    "type": "string"
+                },
+                "storage_key": {
+                    "type": "string"
+                },
+                "width": {
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_modules_studio.SelectVariantInput": {
+            "type": "object",
+            "required": [
+                "variant_id"
+            ],
+            "properties": {
+                "variant_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_studio.SourceAssetInput": {
+            "type": "object",
+            "properties": {
+                "asset_id": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "weight": {
+                    "type": "number"
+                }
+            }
+        },
+        "internal_modules_studio.StyleDimension": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_studio.StyleExecutionProfile": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "type": "string"
+                },
+                "negative_prompt_template": {
+                    "type": "string"
+                },
+                "parameter_profile": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "prompt_template": {
+                    "type": "string"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "style_prompt": {
+                    "type": "string"
+                },
+                "system_prompt": {
+                    "type": "string"
+                },
+                "user_prompt": {
+                    "type": "string"
+                },
+                "variables": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "internal_modules_studio.UpdateJobRuntimeInput": {
+            "type": "object",
+            "properties": {
+                "error_code": {
+                    "type": "string"
+                },
+                "error_message": {
+                    "type": "string"
+                },
+                "eta_seconds": {
+                    "type": "integer"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "progress": {
+                    "type": "integer"
+                },
+                "provider_job_id": {
+                    "type": "string"
+                },
+                "queue_position": {
+                    "type": "integer"
+                },
+                "stage": {
+                    "type": "string"
+                },
+                "stage_message": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_templatecenter.CopyTemplateInput": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "visibility": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_templatecenter.UseTemplateInput": {
+            "type": "object",
+            "required": [
+                "target_platform"
+            ],
+            "properties": {
+                "custom_copy": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "language": {
+                    "type": "string"
+                },
+                "source_asset_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "source_assets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/menu-service_internal_modules_studio.SourceAssetInput"
+                    }
+                },
+                "target_platform": {
+                    "type": "string"
+                },
+                "upload_image_url": {
+                    "type": "string"
+                }
+            }
+        },
         "internal_modules_user.UpdateProfileInput": {
             "type": "object",
             "properties": {
@@ -910,6 +2710,27 @@
                 },
                 "restaurant_name": {
                     "type": "string"
+                }
+            }
+        },
+        "menu-service_internal_modules_studio.SourceAssetInput": {
+            "type": "object",
+            "properties": {
+                "asset_id": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "weight": {
+                    "type": "number"
                 }
             }
         },
