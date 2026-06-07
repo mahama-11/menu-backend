@@ -12,6 +12,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Checkout frontend consumer contract
+        uses: actions/checkout@v4
+        with:
+          repository: mahama-11/menu-frontend
+          path: menu-frontend
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
@@ -22,5 +28,41 @@ jobs:
           chmod +x scripts/check-guardrails.sh
           ./scripts/check-guardrails.sh
 
-      - name: Test
-        run: go test ./...
+      - name: Install OpenAPI generator
+        run: go install github.com/swaggo/swag/cmd/swag@latest
+
+      - name: OpenAPI drift gate
+        run: |
+          export PATH="$PATH:$(go env GOPATH)/bin"
+          ./scripts/gen-swagger.sh
+          git diff --exit-code -- docs/openapi/swagger.json docs/openapi/swagger.yaml docs/openapi/docs.go
+
+      - name: Smoke script syntax
+        run: |
+          node --check scripts/menu-contract-smoke.mjs
+          node --check tests/smoke/menu-contract-smoke.mjs
+          node --check scripts/menu-contract-consumer-sweep.mjs
+          node --check scripts/menu-release-readiness-check.mjs
+
+      - name: Contract consumer sweep
+        run: node scripts/menu-contract-consumer-sweep.mjs
+        env:
+          MENU_FRONTEND_ROOT: menu-frontend
+
+      - name: Release readiness static check
+        run: node scripts/menu-release-readiness-check.mjs
+        env:
+          MENU_FRONTEND_ROOT: menu-frontend
+
+      - name: Focused Studio and TemplateCenter tests with coverage
+        run: go test ./internal/modules/studio ./internal/modules/templatecenter -count=1 -coverprofile=coverage.out
+
+      - name: Test all packages
+        run: go test ./... -count=1
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: menu-backend-coverage
+          path: coverage.out
+          if-no-files-found: error

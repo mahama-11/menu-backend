@@ -2276,7 +2276,14 @@
             ],
             "properties": {
                 "generation_strategy": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                        "text_to_image",
+                        "image_to_image",
+                        "multi_image",
+                        "image_edit",
+                        "ask_for_required_input"
+                    ]
                 },
                 "idempotency_key": {
                     "type": "string"
@@ -2332,7 +2339,7 @@
                 "source_assets": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/internal_modules_studio.SourceAssetInput"
+                        "$ref": "#/definitions/internal_modules_studio.StudioSourceAssetInput"
                     }
                 },
                 "style_preset_id": {
@@ -2541,10 +2548,16 @@
                 }
             }
         },
-        "internal_modules_studio.SourceAssetInput": {
+        "internal_modules_studio.StudioSourceAssetInput": {
             "type": "object",
             "properties": {
                 "asset_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "label": {
                     "type": "string"
                 },
                 "metadata": {
@@ -2556,9 +2569,6 @@
                 },
                 "role": {
                     "type": "string"
-                },
-                "weight": {
-                    "type": "number"
                 }
             }
         },
@@ -2674,18 +2684,6 @@
                 "language": {
                     "type": "string"
                 },
-                "source_asset_ids": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "source_assets": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/menu-service_internal_modules_studio.SourceAssetInput"
-                    }
-                },
                 "target_platform": {
                     "type": "string"
                 },
@@ -2710,27 +2708,6 @@
                 },
                 "restaurant_name": {
                     "type": "string"
-                }
-            }
-        },
-        "menu-service_internal_modules_studio.SourceAssetInput": {
-            "type": "object",
-            "properties": {
-                "asset_id": {
-                    "type": "string"
-                },
-                "metadata": {
-                    "type": "object",
-                    "additionalProperties": {}
-                },
-                "required": {
-                    "type": "boolean"
-                },
-                "role": {
-                    "type": "string"
-                },
-                "weight": {
-                    "type": "number"
                 }
             }
         },

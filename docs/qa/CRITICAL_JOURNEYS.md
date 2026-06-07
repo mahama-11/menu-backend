@@ -70,9 +70,8 @@ Required backend evidence:
 
 Existing tests:
 
-- `internal/modules/studio/service_test.go`
+- `internal/modules/studio/service_test.go` (history/library/readback cases)
 - `internal/modules/studio/generation_strategy_test.go`
-- `internal/modules/studio/service_history_test.go`
 
 ## CJ-04 Four-slot multi-image generation
 
@@ -86,7 +85,7 @@ Required roles:
 Required backend evidence:
 
 - Exactly four role-aware source assets resolve to `input_mode=multi_image`.
-- More than four source assets fails closed before runtime dispatch.
+- More than four source assets fails closed before runtime dispatch with typed error `STUDIO_SOURCE_ASSETS_LIMIT_EXCEEDED`.
 - Runtime manifest preserves roles.
 - Platform route policy must only choose providers that declare `multi_image`; `volcengine` must not silently consume multi-image jobs.
 - Current expected provider for real multi-image route is `comfyui_bridge`; real completion may be `BLOCKED by ComfyUI 8188` when downstream core is unavailable.

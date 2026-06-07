@@ -34,3 +34,4 @@ It should host:
 - [**Service Boundary**](docs/architecture/SERVICE_BOUNDARY.md): What belongs here versus the platform service.
 - [**Authz Model**](docs/architecture/AUTHZ_MODEL.md): Product-owned authorization model and platform-role mapping strategy.
 - [**Channel Platform Integration**](docs/architecture/CHANNEL_PLATFORM_INTEGRATION.md): Menu-side integration boundary for channel binding, charge reporting, refund reporting, and product aggregation APIs.
+- [**Workspace Cloud Dev Deploy Runbook**](../tools/dev/README.md): Cloud dev 部署固定入口；不要用本 repo 旧 `build.sh dev` 或 prod deploy script 伪装 dev 部署。

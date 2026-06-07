@@ -216,6 +216,10 @@ func (s *Service) ForkStylePreset(userID, orgID, styleID string, input ForkStyle
 }
 
 func (s *Service) CreateGenerationJob(userID, orgID string, input CreateGenerationJobInput) (*GenerationJobSummary, error) {
+	input, err := normalizeGenerationJobInput(input)
+	if err != nil {
+		return nil, err
+	}
 	if input.IdempotencyKey != "" {
 		if existing, err := s.repo.FindGenerationJobByIdempotencyKey(orgID, userID, input.IdempotencyKey); err == nil {
 			return s.GetGenerationJob(orgID, existing.ID)
@@ -231,7 +235,10 @@ func (s *Service) CreateGenerationJob(userID, orgID string, input CreateGenerati
 	if err != nil {
 		return nil, err
 	}
-	providerName := firstNonEmpty(input.Provider, promptSnapshot.Provider, stringMapValue(normalizedMetadata, "provider"), s.cfg.DefaultProvider)
+	providerName, err := resolveStudioProvider([]string{input.Provider, promptSnapshot.Provider, stringMapValue(normalizedMetadata, "provider")}, input.InputMode, s.cfg.DefaultProvider)
+	if err != nil {
+		return nil, err
+	}
 	requestedVariants := input.RequestedVariants
 	if requestedVariants <= 0 {
 		requestedVariants = s.cfg.DefaultVariantCount
@@ -343,38 +350,54 @@ func (s *Service) createPlatformRuntimeJob(item *models.GenerationJob) error {
 		return fmt.Errorf("platform client is required")
 	}
 	sourceAssetIDs := decodeStringSlice(item.SourceAssetIDs)
+	metadata := decodeMap(item.Metadata)
+	paramsSnapshot := decodeMap(item.ParamsSnapshot)
+	inputMode := firstNonEmpty(stringMapValue(paramsSnapshot, "input_mode"), stringMapValue(metadata, "input_mode"), inferInputModeFromAssetCount(len(sourceAssetIDs)))
+	generationStrategy := firstNonEmpty(stringMapValue(paramsSnapshot, "generation_strategy"), stringMapValue(metadata, "generation_strategy"), inputMode)
+	rolesByAssetID := roleByAssetIDFromMetadata(metadata)
 	sourceAssets := make([]map[string]any, 0, len(sourceAssetIDs))
 	for _, assetID := range sourceAssetIDs {
 		asset, err := s.repo.FindAssetByIDGlobal(assetID)
 		if err != nil {
 			return fmt.Errorf("load source asset %s: %w", assetID, err)
 		}
-		sourceAssets = append(sourceAssets, map[string]any{
+		entry := map[string]any{
 			"id":          asset.ID,
+			"asset_id":    asset.ID,
 			"storage_key": asset.StorageKey,
 			"mime_type":   asset.MimeType,
 			"width":       asset.Width,
 			"height":      asset.Height,
-		})
+		}
+		if role := rolesByAssetID[asset.ID]; role != "" {
+			entry["role"] = role
+		}
+		sourceAssets = append(sourceAssets, entry)
 	}
 	inputManifest := mustEncodeJSON(map[string]any{
-		"mode":               item.Mode,
-		"prompt":             item.Prompt,
-		"prompt_snapshot":    decodeExecutionProfile(item.PromptSnapshot),
-		"params_snapshot":    decodeMap(item.ParamsSnapshot),
-		"source_asset_ids":   sourceAssetIDs,
-		"source_assets":      sourceAssets,
-		"requested_variants": item.RequestedVariants,
+		"mode":                item.Mode,
+		"input_mode":          inputMode,
+		"generation_strategy": generationStrategy,
+		"prompt":              item.Prompt,
+		"prompt_snapshot":     decodeExecutionProfile(item.PromptSnapshot),
+		"params_snapshot":     paramsSnapshot,
+		"source_asset_ids":    sourceAssetIDs,
+		"source_assets":       sourceAssets,
+		"requested_variants":  item.RequestedVariants,
 	})
 	routeSnapshot := mustEncodeJSON(map[string]any{
-		"provider": item.Provider,
+		"provider":            item.Provider,
+		"input_mode":          inputMode,
+		"generation_strategy": generationStrategy,
 	})
 	runtimeMetadata := map[string]any{
-		"menu_job_id":        item.ID,
-		"creative_source":    decodeCreativeSource(item.Metadata),
-		"studio_metadata":    decodeMap(item.Metadata),
-		"target_platform":    stringMapValue(decodeMap(item.ParamsSnapshot), "target_platform"),
-		"requested_variants": item.RequestedVariants,
+		"menu_job_id":         item.ID,
+		"creative_source":     decodeCreativeSource(item.Metadata),
+		"studio_metadata":     metadata,
+		"input_mode":          inputMode,
+		"generation_strategy": generationStrategy,
+		"target_platform":     stringMapValue(paramsSnapshot, "target_platform"),
+		"requested_variants":  item.RequestedVariants,
 	}
 	idempotencyKey := firstNonEmpty(derefString(item.IdempotencyKey), fmt.Sprintf("menu:%s:create_runtime", item.ID))
 	runtimeJob, err := s.platform.CreateRuntimeJob(platform.CreateRuntimeJobInput{

@@ -55,6 +55,12 @@ definitions:
   internal_modules_studio.CreateGenerationJobInput:
     properties:
       generation_strategy:
+        enum:
+        - text_to_image
+        - image_to_image
+        - multi_image
+        - image_edit
+        - ask_for_required_input
         type: string
       idempotency_key:
         type: string
@@ -95,7 +101,7 @@ definitions:
         type: array
       source_assets:
         items:
-          $ref: '#/definitions/internal_modules_studio.SourceAssetInput'
+          $ref: '#/definitions/internal_modules_studio.StudioSourceAssetInput'
         type: array
       style_preset_id:
         type: string
@@ -241,9 +247,13 @@ definitions:
     required:
     - variant_id
     type: object
-  internal_modules_studio.SourceAssetInput:
+  internal_modules_studio.StudioSourceAssetInput:
     properties:
       asset_id:
+        type: string
+      id:
+        type: string
+      label:
         type: string
       metadata:
         additionalProperties: {}
@@ -252,8 +262,6 @@ definitions:
         type: boolean
       role:
         type: string
-      weight:
-        type: number
     type: object
   internal_modules_studio.StyleDimension:
     properties:
@@ -327,14 +335,6 @@ definitions:
         type: object
       language:
         type: string
-      source_asset_ids:
-        items:
-          type: string
-        type: array
-      source_assets:
-        items:
-          $ref: '#/definitions/menu-service_internal_modules_studio.SourceAssetInput'
-        type: array
       target_platform:
         type: string
       upload_image_url:
@@ -354,20 +354,6 @@ definitions:
         type: string
       restaurant_name:
         type: string
-    type: object
-  menu-service_internal_modules_studio.SourceAssetInput:
-    properties:
-      asset_id:
-        type: string
-      metadata:
-        additionalProperties: {}
-        type: object
-      required:
-        type: boolean
-      role:
-        type: string
-      weight:
-        type: number
     type: object
   menu-service_pkg_response.ErrorResponse:
     properties:

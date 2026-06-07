@@ -416,6 +416,10 @@ func (h *Handler) GetGenerationJob(c *gin.Context) {
 }
 
 func writeCreateJobError(c *gin.Context, err error) {
+	if domainErr, ok := asStudioDomainError(err); ok {
+		response.JSONErrorWithStatusSemantic(c, response.CodeInvalidParameter, domainErr.Message, domainErr.Code, domainErr.Hint, domainErr.HTTPStatus)
+		return
+	}
 	switch platform.ResponseCode(err) {
 	case 2001:
 		response.JSONErrorSemantic(c, response.CodeConflict, "Monthly allowance is not enough for this generation", "STUDIO_BILLING_ALLOWANCE_INSUFFICIENT", firstNonEmpty(platform.ErrorHint(err), "Use recharge credits or upgrade the plan to continue."))

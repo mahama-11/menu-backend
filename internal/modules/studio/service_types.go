@@ -68,44 +68,46 @@ type GenerationVariantSummary struct {
 }
 
 type GenerationJobSummary struct {
-	JobID             string                      `json:"job_id"`
-	UserID            string                      `json:"user_id"`
-	Mode              string                      `json:"mode"`
-	Status            string                      `json:"status"`
-	Stage             string                      `json:"stage"`
-	StageMessage      string                      `json:"stage_message"`
-	Provider          string                      `json:"provider"`
-	ProviderJobID     string                      `json:"provider_job_id,omitempty"`
-	IdempotencyKey    string                      `json:"idempotency_key,omitempty"`
-	StylePresetID     string                      `json:"style_preset_id,omitempty"`
-	ParentJobID       string                      `json:"parent_job_id,omitempty"`
-	BatchRootID       string                      `json:"batch_root_id,omitempty"`
-	ParentVariantID   string                      `json:"parent_variant_id,omitempty"`
-	SourceAssetIDs    []string                    `json:"source_asset_ids"`
-	RequestedVariants int                         `json:"requested_variants"`
-	ChildJobCount     int                         `json:"child_job_count,omitempty"`
-	Progress          int                         `json:"progress"`
-	QueuePosition     int                         `json:"queue_position,omitempty"`
-	EtaSeconds        int                         `json:"eta_seconds,omitempty"`
-	ErrorCode         string                      `json:"error_code,omitempty"`
-	ErrorMessage      string                      `json:"error_message,omitempty"`
-	SelectedVariantID string                      `json:"selected_variant_id,omitempty"`
-	PromptSnapshot    StyleExecutionProfile       `json:"prompt_snapshot"`
-	CreativeSource    *CreativeSourceSnapshot     `json:"creative_source,omitempty"`
-	ParamsSnapshot    map[string]any              `json:"params_snapshot,omitempty"`
-	Metadata          map[string]any              `json:"metadata,omitempty"`
-	Variants          []GenerationVariantSummary  `json:"variants,omitempty"`
-	AttemptCount      int                         `json:"attempt_count"`
-	MaxAttempts       int                         `json:"max_attempts"`
-	NextRetryAt       *string                     `json:"next_retry_at,omitempty"`
-	TimeoutAt         *string                     `json:"timeout_at,omitempty"`
-	HeartbeatAt       *string                     `json:"heartbeat_at,omitempty"`
-	CreatedAt         string                      `json:"created_at"`
-	UpdatedAt         string                      `json:"updated_at"`
-	CompletedAt       *string                     `json:"completed_at,omitempty"`
-	CanceledAt        *string                     `json:"canceled_at,omitempty"`
-	Charge            *GenerationJobChargeSummary `json:"charge,omitempty"`
-	ChildJobs         []GenerationJobSummaryLite  `json:"child_jobs,omitempty"`
+	JobID              string                      `json:"job_id"`
+	UserID             string                      `json:"user_id"`
+	Mode               string                      `json:"mode"`
+	InputMode          string                      `json:"input_mode,omitempty"`
+	GenerationStrategy string                      `json:"generation_strategy,omitempty"`
+	Status             string                      `json:"status"`
+	Stage              string                      `json:"stage"`
+	StageMessage       string                      `json:"stage_message"`
+	Provider           string                      `json:"provider"`
+	ProviderJobID      string                      `json:"provider_job_id,omitempty"`
+	IdempotencyKey     string                      `json:"idempotency_key,omitempty"`
+	StylePresetID      string                      `json:"style_preset_id,omitempty"`
+	ParentJobID        string                      `json:"parent_job_id,omitempty"`
+	BatchRootID        string                      `json:"batch_root_id,omitempty"`
+	ParentVariantID    string                      `json:"parent_variant_id,omitempty"`
+	SourceAssetIDs     []string                    `json:"source_asset_ids"`
+	RequestedVariants  int                         `json:"requested_variants"`
+	ChildJobCount      int                         `json:"child_job_count,omitempty"`
+	Progress           int                         `json:"progress"`
+	QueuePosition      int                         `json:"queue_position,omitempty"`
+	EtaSeconds         int                         `json:"eta_seconds,omitempty"`
+	ErrorCode          string                      `json:"error_code,omitempty"`
+	ErrorMessage       string                      `json:"error_message,omitempty"`
+	SelectedVariantID  string                      `json:"selected_variant_id,omitempty"`
+	PromptSnapshot     StyleExecutionProfile       `json:"prompt_snapshot"`
+	CreativeSource     *CreativeSourceSnapshot     `json:"creative_source,omitempty"`
+	ParamsSnapshot     map[string]any              `json:"params_snapshot,omitempty"`
+	Metadata           map[string]any              `json:"metadata,omitempty"`
+	Variants           []GenerationVariantSummary  `json:"variants,omitempty"`
+	AttemptCount       int                         `json:"attempt_count"`
+	MaxAttempts        int                         `json:"max_attempts"`
+	NextRetryAt        *string                     `json:"next_retry_at,omitempty"`
+	TimeoutAt          *string                     `json:"timeout_at,omitempty"`
+	HeartbeatAt        *string                     `json:"heartbeat_at,omitempty"`
+	CreatedAt          string                      `json:"created_at"`
+	UpdatedAt          string                      `json:"updated_at"`
+	CompletedAt        *string                     `json:"completed_at,omitempty"`
+	CanceledAt         *string                     `json:"canceled_at,omitempty"`
+	Charge             *GenerationJobChargeSummary `json:"charge,omitempty"`
+	ChildJobs          []GenerationJobSummaryLite  `json:"child_jobs,omitempty"`
 }
 
 type SharePostSummary struct {
@@ -216,17 +218,20 @@ type ForkStylePresetInput struct {
 }
 
 type CreateGenerationJobInput struct {
-	Mode              string         `json:"mode" binding:"required,oneof=single batch variation refinement"`
-	Provider          string         `json:"provider"`
-	IdempotencyKey    string         `json:"idempotency_key"`
-	StylePresetID     string         `json:"style_preset_id"`
-	SourceAssetIDs    []string       `json:"source_asset_ids"`
-	Prompt            string         `json:"prompt"`
-	ParentJobID       string         `json:"parent_job_id"`
-	ParentVariantID   string         `json:"parent_variant_id"`
-	RequestedVariants int            `json:"requested_variants"`
-	Params            map[string]any `json:"params"`
-	Metadata          map[string]any `json:"metadata"`
+	Mode               string                   `json:"mode" binding:"required,oneof=single batch variation refinement"`
+	InputMode          string                   `json:"input_mode" binding:"omitempty,oneof=text_to_image image_to_image multi_image image_edit ask_for_required_input"`
+	GenerationStrategy string                   `json:"generation_strategy" binding:"omitempty,oneof=text_to_image image_to_image multi_image image_edit ask_for_required_input"`
+	Provider           string                   `json:"provider"`
+	IdempotencyKey     string                   `json:"idempotency_key"`
+	StylePresetID      string                   `json:"style_preset_id"`
+	SourceAssetIDs     []string                 `json:"source_asset_ids"`
+	SourceAssets       []StudioSourceAssetInput `json:"source_assets"`
+	Prompt             string                   `json:"prompt"`
+	ParentJobID        string                   `json:"parent_job_id"`
+	ParentVariantID    string                   `json:"parent_variant_id"`
+	RequestedVariants  int                      `json:"requested_variants"`
+	Params             map[string]any           `json:"params"`
+	Metadata           map[string]any           `json:"metadata"`
 }
 
 type CreativeSourceSnapshot struct {
