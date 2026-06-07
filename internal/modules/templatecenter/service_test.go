@@ -38,6 +38,29 @@ func newTemplateCenterTestService(t *testing.T) (*Service, *repository.TemplateC
 	return service, templateRepo, studioRepo
 }
 
+func TestTemplateCenterBootstrapSeedsLocalCatalogEvenWithPlatformProjectionClient(t *testing.T) {
+	t.Helper()
+	dbPath := filepath.Join(t.TempDir(), "templatecenter-platform-bootstrap.db")
+	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	if err := db.AutoMigrate(&models.TemplateCatalog{}, &models.TemplateCatalogVersion{}, &models.TemplateCatalogExample{}, &models.TemplateFavorite{}, &models.TemplateUsageEvent{}, &models.StylePreset{}); err != nil {
+		t.Fatalf("auto migrate: %v", err)
+	}
+	service := NewService(repository.NewTemplateCenterRepository(db), repository.NewStudioRepository(db), nil, platform.New(config.PlatformConfig{BaseURL: "http://127.0.0.1:1", Timeout: time.Millisecond}))
+	if err := service.Bootstrap(); err != nil {
+		t.Fatalf("Bootstrap: %v", err)
+	}
+	items, err := service.ListCatalogs("user-1", "org-1", ListCatalogInput{Plan: "pro", Source: "local"})
+	if err != nil {
+		t.Fatalf("ListCatalogs local: %v", err)
+	}
+	if len(items) == 0 {
+		t.Fatalf("expected local template seed to be present for platform upstream sync")
+	}
+}
+
 func TestTemplateCenterBootstrapAndMeta(t *testing.T) {
 	service, _, _ := newTemplateCenterTestService(t)
 	items, err := service.ListCatalogs("user-1", "org-1", ListCatalogInput{Plan: "pro"})
@@ -50,6 +73,66 @@ func TestTemplateCenterBootstrapAndMeta(t *testing.T) {
 	meta := service.Meta()
 	if len(meta.Cuisines) == 0 || len(meta.Platforms) == 0 || len(meta.Moods) == 0 {
 		t.Fatalf("expected populated meta: %+v", meta)
+	}
+}
+
+func TestTemplateCenterBootstrapExposesFourSlotTemplateContract(t *testing.T) {
+	service, _, _ := newTemplateCenterTestService(t)
+
+	items, err := service.ListCatalogs("user-1", "org-1", ListCatalogInput{Plan: "pro"})
+	if err != nil {
+		t.Fatalf("ListCatalogs: %v", err)
+	}
+	var menuTemplate *TemplateCatalogSummary
+	for idx := range items {
+		if items[idx].TemplateID == "TPL-MENU-001" {
+			menuTemplate = &items[idx]
+			break
+		}
+	}
+	if menuTemplate == nil {
+		t.Fatalf("expected TPL-MENU-001 in catalog")
+	}
+	assertFourSlotContract(t, menuTemplate.InputSlots, menuTemplate.StrategyPolicy)
+
+	detail, err := service.GetCatalogDetail("user-1", "org-1", "TPL-MENU-001", "pro")
+	if err != nil {
+		t.Fatalf("GetCatalogDetail: %v", err)
+	}
+	assertFourSlotContract(t, detail.InputSlots, detail.StrategyPolicy)
+	if len(detail.TargetOutputs) == 0 {
+		t.Fatalf("expected target_outputs in detail: %+v", detail)
+	}
+
+	useResult, err := service.UseTemplate("user-1", "org-1", "TPL-MENU-001", "pro", UseTemplateInput{TargetPlatform: "print_a4", Language: "en"})
+	if err != nil {
+		t.Fatalf("UseTemplate: %v", err)
+	}
+	assertFourSlotContract(t, useResult.InputSlots, useResult.ResolvedStrategy)
+	if useResult.PrefilledJob.InputMode != "multi_image" || useResult.PrefilledJob.GenerationStrategy != "multi_image" || useResult.PrefilledJob.Provider != "comfyui_bridge" {
+		t.Fatalf("expected multi_image handoff routed to comfyui_bridge, got %+v", useResult.PrefilledJob)
+	}
+}
+
+func assertFourSlotContract(t *testing.T, slots []TemplateInputSlot, strategy map[string]any) {
+	t.Helper()
+	roles := make([]string, 0, len(slots))
+	for _, slot := range slots {
+		if slot.Required {
+			roles = append(roles, slot.Role)
+		}
+	}
+	expected := []string{"dish_photo", "brand_logo", "menu_reference", "style_reference"}
+	if len(roles) != len(expected) {
+		t.Fatalf("expected four required slots, got roles=%+v slots=%+v", roles, slots)
+	}
+	for idx, role := range expected {
+		if roles[idx] != role {
+			t.Fatalf("unexpected slot roles: got %+v want %+v", roles, expected)
+		}
+	}
+	if strategy["input_mode"] != "multi_image" || strategy["generation_strategy"] != "multi_image" || strategy["provider"] != "comfyui_bridge" {
+		t.Fatalf("expected multi_image strategy policy, got %+v", strategy)
 	}
 }
 

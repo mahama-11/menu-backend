@@ -1,7 +1,6 @@
 package templatecenter
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -29,24 +28,40 @@ type ListCatalogInput struct {
 	Mood     string
 	Query    string
 	Plan     string
+	Source   string
 }
 
+type TemplateInputSlot struct {
+	Role        string `json:"role"`
+	Label       string `json:"label"`
+	Required    bool   `json:"required"`
+	Accept      string `json:"accept,omitempty"`
+	Description string `json:"description,omitempty"`
+	MaxCount    int    `json:"max_count,omitempty"`
+}
+
+type TemplateTargetOutput map[string]any
+
 type TemplateCatalogSummary struct {
-	TemplateID     string   `json:"template_id"`
-	Slug           string   `json:"slug"`
-	Name           string   `json:"name"`
-	Description    string   `json:"description"`
-	Cuisine        string   `json:"cuisine"`
-	DishType       string   `json:"dish_type"`
-	Platforms      []string `json:"platforms"`
-	Moods          []string `json:"moods"`
-	Tags           []string `json:"tags"`
-	PlanRequired   string   `json:"plan_required"`
-	CreditsCost    int64    `json:"credits_cost"`
-	Locked         bool     `json:"locked"`
-	IsFavorite     bool     `json:"is_favorite"`
-	CoverAssetID   string   `json:"cover_asset_id,omitempty"`
-	RecommendScore int      `json:"recommend_score"`
+	TemplateID     string                 `json:"template_id"`
+	Slug           string                 `json:"slug"`
+	Name           string                 `json:"name"`
+	Description    string                 `json:"description"`
+	Cuisine        string                 `json:"cuisine"`
+	DishType       string                 `json:"dish_type"`
+	Platforms      []string               `json:"platforms"`
+	Moods          []string               `json:"moods"`
+	Tags           []string               `json:"tags"`
+	PlanRequired   string                 `json:"plan_required"`
+	CreditsCost    int64                  `json:"credits_cost"`
+	Locked         bool                   `json:"locked"`
+	IsFavorite     bool                   `json:"is_favorite"`
+	CoverAssetID   string                 `json:"cover_asset_id,omitempty"`
+	RecommendScore int                    `json:"recommend_score"`
+	BusinessGoal   string                 `json:"business_goal,omitempty"`
+	InputSlots     []TemplateInputSlot    `json:"input_slots,omitempty"`
+	TargetOutputs  []TemplateTargetOutput `json:"target_outputs,omitempty"`
+	StrategyPolicy map[string]any         `json:"strategy_policy,omitempty"`
 }
 
 type TemplateCatalogDetail struct {
@@ -78,6 +93,9 @@ type UseTemplateResult struct {
 	CreditsCost       int64                           `json:"credits_cost"`
 	PlanRequired      string                          `json:"plan_required"`
 	PrefilledJob      studio.CreateGenerationJobInput `json:"prefilled_job"`
+	InputSlots        []TemplateInputSlot             `json:"input_slots,omitempty"`
+	TargetOutputs     []TemplateTargetOutput          `json:"target_outputs,omitempty"`
+	ResolvedStrategy  map[string]any                  `json:"resolved_strategy,omitempty"`
 	TemplateContext   map[string]any                  `json:"template_context"`
 }
 
@@ -99,27 +117,58 @@ func NewService(repo *repository.TemplateCenterRepository, studioRepo *repositor
 }
 
 func (s *Service) Bootstrap() error {
-	if s.platform != nil {
-		return nil
-	}
 	for index, seed := range defaultTemplateSeeds() {
+		desiredCatalog := seed.catalogModel()
+		desiredCatalog.SortOrder = index + 1
 		catalog, err := s.repo.FindCatalogByID(seed.ID)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			catalog = seed.catalogModel()
-			catalog.SortOrder = index + 1
+			catalog = desiredCatalog
 			if err := s.repo.CreateCatalog(catalog); err != nil {
 				return err
 			}
+		} else {
+			catalog.Slug = desiredCatalog.Slug
+			catalog.Name = desiredCatalog.Name
+			catalog.Description = desiredCatalog.Description
+			catalog.Status = desiredCatalog.Status
+			catalog.Scope = desiredCatalog.Scope
+			catalog.Cuisine = desiredCatalog.Cuisine
+			catalog.DishType = desiredCatalog.DishType
+			catalog.PlanRequired = desiredCatalog.PlanRequired
+			catalog.CreditsCost = desiredCatalog.CreditsCost
+			catalog.PlatformsJSON = desiredCatalog.PlatformsJSON
+			catalog.MoodsJSON = desiredCatalog.MoodsJSON
+			catalog.TagsJSON = desiredCatalog.TagsJSON
+			catalog.MetadataJSON = desiredCatalog.MetadataJSON
+			catalog.RecommendScore = desiredCatalog.RecommendScore
+			catalog.SortOrder = desiredCatalog.SortOrder
 		}
 		versionID := seed.ID + "-v1"
-		if _, err := s.repo.FindCatalogVersionByID(versionID); err != nil {
+		desiredVersion := seed.versionModel()
+		version, err := s.repo.FindCatalogVersionByID(versionID)
+		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
 				return err
 			}
-			if err := s.repo.CreateCatalogVersion(seed.versionModel()); err != nil {
+			if err := s.repo.CreateCatalogVersion(desiredVersion); err != nil {
+				return err
+			}
+		} else {
+			version.Status = desiredVersion.Status
+			version.Name = desiredVersion.Name
+			version.Summary = desiredVersion.Summary
+			version.PromptTemplatesJSON = desiredVersion.PromptTemplatesJSON
+			version.CopyTemplatesJSON = desiredVersion.CopyTemplatesJSON
+			version.HashtagsJSON = desiredVersion.HashtagsJSON
+			version.DesignSpecJSON = desiredVersion.DesignSpecJSON
+			version.ExportSpecsJSON = desiredVersion.ExportSpecsJSON
+			version.InputSchemaJSON = desiredVersion.InputSchemaJSON
+			version.ExecutionProfileJSON = desiredVersion.ExecutionProfileJSON
+			version.MetadataJSON = desiredVersion.MetadataJSON
+			if err := s.repo.SaveCatalogVersion(version); err != nil {
 				return err
 			}
 		}
@@ -128,10 +177,9 @@ func (s *Service) Bootstrap() error {
 		}
 		if catalog.CurrentVersionID != versionID || catalog.SortOrder != index+1 {
 			catalog.CurrentVersionID = versionID
-			catalog.SortOrder = index + 1
-			if err := s.repo.SaveCatalog(catalog); err != nil {
-				return err
-			}
+		}
+		if err := s.repo.SaveCatalog(catalog); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -147,7 +195,7 @@ func (s *Service) ListCatalogs(userID, orgID string, input ListCatalogInput) ([]
 		return nil, err
 	}
 	currentScope := s.resolveTemplateScope(orgID, input.Plan)
-	if s.platform != nil {
+	if s.platform != nil && !strings.EqualFold(strings.TrimSpace(input.Source), "local") {
 		if result, err := s.platform.InternalTemplateCatalog("menu"); err == nil && result != nil && len(result.Items) > 0 {
 			out := make([]TemplateCatalogSummary, 0, len(result.Items))
 			for _, item := range result.Items {
@@ -173,7 +221,13 @@ func (s *Service) ListCatalogs(userID, orgID string, input ListCatalogInput) ([]
 	}
 	out := make([]TemplateCatalogSummary, 0, len(items))
 	for _, item := range items {
-		out = append(out, mapCatalogSummary(&item, favoriteMap[item.ID], input.Plan, currentScope))
+		summary := mapCatalogSummary(&item, favoriteMap[item.ID], input.Plan, currentScope)
+		if item.CurrentVersionID != "" {
+			if version, versionErr := s.repo.FindCatalogVersionByID(item.CurrentVersionID); versionErr == nil {
+				applyTemplateContract(&summary, decodeMapAny(version.InputSchemaJSON))
+			}
+		}
+		out = append(out, summary)
 	}
 	return out, nil
 }
@@ -184,6 +238,10 @@ func (s *Service) GetCatalogDetail(userID, orgID, templateID, plan string) (*Tem
 	} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
+	return s.GetLocalCatalogDetail(userID, orgID, templateID, plan)
+}
+
+func (s *Service) GetLocalCatalogDetail(userID, orgID, templateID, plan string) (*TemplateCatalogDetail, error) {
 	catalog, version, err := s.loadCatalogAndVersion(templateID)
 	if err != nil {
 		return nil, err
@@ -196,6 +254,7 @@ func (s *Service) GetCatalogDetail(userID, orgID, templateID, plan string) (*Tem
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
+	inputSchema := decodeMapAny(version.InputSchemaJSON)
 	detail := &TemplateCatalogDetail{
 		TemplateCatalogSummary: mapCatalogSummary(catalog, favorite != nil, plan, s.resolveTemplateScope(orgID, plan)),
 		CurrentVersionID:       version.ID,
@@ -204,125 +263,14 @@ func (s *Service) GetCatalogDetail(userID, orgID, templateID, plan string) (*Tem
 		Hashtags:               decodeMapStringSlice(version.HashtagsJSON),
 		DesignSpec:             decodeMapAny(version.DesignSpecJSON),
 		ExportSpecs:            decodeMapAny(version.ExportSpecsJSON),
-		InputSchema:            decodeMapAny(version.InputSchemaJSON),
+		InputSchema:            inputSchema,
 		ExecutionProfile:       decodeExecutionProfile(version.ExecutionProfileJSON),
 		Examples:               examples,
 		Metadata:               decodeMapAny(version.MetadataJSON),
 	}
+	applyTemplateContract(&detail.TemplateCatalogSummary, inputSchema)
 	detail.ExecutionProfile = enrichTemplateDetailPromptProfile(detail, "")
 	return detail, nil
-}
-
-func mapPlatformCatalogSummary(item platform.PlatformTemplateCatalogItem, plan string, currentScope string) TemplateCatalogSummary {
-	raw := item.Raw
-	cuisine, _ := raw["cuisine"].(string)
-	dishType, _ := raw["dish_type"].(string)
-	planRequired, _ := raw["plan_required"].(string)
-	moods := decodeAnyStringSlice(raw["moods"])
-	creditsCost := int64(numberValue(raw["credits_cost"]))
-	return TemplateCatalogSummary{
-		TemplateID:     item.TemplateID,
-		Slug:           item.Slug,
-		Name:           item.Name,
-		Description:    item.Summary,
-		Cuisine:        cuisine,
-		DishType:       dishType,
-		Platforms:      item.Platforms,
-		Moods:          moods,
-		Tags:           item.Tags,
-		PlanRequired:   planRequired,
-		CreditsCost:    creditsCost,
-		Locked:         !hasTemplateScopeAccess(currentScope, requiredTemplateScope(item.Scope, planRequired)),
-		IsFavorite:     false,
-		CoverAssetID:   item.CoverAssetID,
-		RecommendScore: item.RecommendScore,
-	}
-}
-
-func mapPlatformCatalogDetail(detail *platform.PlatformTemplateCatalogDetail, plan string, currentScope string) *TemplateCatalogDetail {
-	raw := detail.DetailRaw
-	promptTemplates := map[string]string{}
-	if prompts, ok := raw["prompt_templates"].(map[string]any); ok {
-		for key, value := range prompts {
-			if str, ok := value.(string); ok {
-				promptTemplates[key] = str
-			}
-		}
-	}
-	currentVersionID := stringMapValue(raw, "current_version_id")
-	if currentVersionID == "" {
-		currentVersionID = detail.Item.TemplateID + "-platform"
-	}
-	designSpec := mapAnyValue(raw, "design_spec")
-	if layout := stringMapValue(raw, "layout"); layout != "" {
-		designSpec["layout"] = layout
-	}
-	if lighting := stringMapValue(raw, "lighting"); lighting != "" {
-		designSpec["lighting"] = lighting
-	}
-	if props := decodeAnyStringSlice(raw["props"]); len(props) > 0 {
-		designSpec["props"] = props
-	}
-	if moods := decodeAnyStringSlice(raw["moods"]); len(moods) > 0 {
-		designSpec["moods"] = moods
-	}
-	result := &TemplateCatalogDetail{
-		TemplateCatalogSummary: mapPlatformCatalogSummary(detail.Item, plan, currentScope),
-		CurrentVersionID:       currentVersionID,
-		PromptTemplates:        promptTemplates,
-		CopyTemplates:          mapAnyValue(raw, "copy_templates"),
-		Hashtags:               mapStringSliceValue(raw, "hashtags"),
-		DesignSpec:             designSpec,
-		ExportSpecs:            mapAnyValue(raw, "export_specs"),
-		InputSchema:            mapAnyValue(raw, "input_schema"),
-		ExecutionProfile:       decodeExecutionProfileFromAny(raw["execution_profile"]),
-		Examples:               decodePlatformExamples(currentVersionID, raw["examples"]),
-		Metadata:               mapAnyValue(raw, "metadata"),
-	}
-	result.ExecutionProfile = enrichTemplateDetailPromptProfile(result, "")
-	return result
-}
-
-func decodeAnyStringSlice(value any) []string {
-	items, ok := value.([]any)
-	if !ok {
-		if stringsValue, ok := value.([]string); ok {
-			return stringsValue
-		}
-		return nil
-	}
-	result := make([]string, 0, len(items))
-	for _, item := range items {
-		if str, ok := item.(string); ok {
-			result = append(result, str)
-		}
-	}
-	return result
-}
-
-func stringMapValue(input map[string]any, key string) string {
-	value, _ := input[key].(string)
-	return value
-}
-
-func mapAnyValue(input map[string]any, key string) map[string]any {
-	value, _ := input[key].(map[string]any)
-	if value == nil {
-		return map[string]any{}
-	}
-	return value
-}
-
-func mapStringSliceValue(input map[string]any, key string) map[string][]string {
-	value, _ := input[key].(map[string]any)
-	if len(value) == 0 {
-		return nil
-	}
-	result := map[string][]string{}
-	for k, item := range value {
-		result[k] = decodeAnyStringSlice(item)
-	}
-	return result
 }
 
 func (s *Service) ListFavorites(userID, orgID, plan string) ([]TemplateCatalogSummary, error) {
@@ -402,13 +350,21 @@ func (s *Service) UseTemplate(userID, orgID, templateID, plan string, input UseT
 	}
 	exportSpec := resolveTemplateExportSpec(platforms, decodeMapAny(version.ExportSpecsJSON), input.TargetPlatform)
 	language := defaultString(input.Language, "en")
+	inputSchema := decodeMapAny(version.InputSchemaJSON)
+	contractSummary := TemplateCatalogSummary{}
+	applyTemplateContract(&contractSummary, inputSchema)
 	profile := decodeExecutionProfile(version.ExecutionProfileJSON)
 	profile = enrichCatalogVersionPromptProfile(profile, catalog, version, language)
+	inputMode := templateStrategyValue(contractSummary.StrategyPolicy, "input_mode", "image_to_image")
+	generationStrategy := templateStrategyValue(contractSummary.StrategyPolicy, "generation_strategy", inputMode)
+	provider := templateStrategyValue(contractSummary.StrategyPolicy, "provider", profile.Provider)
 	jobInput := studio.CreateGenerationJobInput{
-		Mode:              "single",
-		Provider:          profile.Provider,
-		Prompt:            "",
-		RequestedVariants: 1,
+		Mode:               "single",
+		InputMode:          inputMode,
+		GenerationStrategy: generationStrategy,
+		Provider:           provider,
+		Prompt:             "",
+		RequestedVariants:  1,
 		Params: map[string]any{
 			"target_platform":  input.TargetPlatform,
 			"language":         language,
@@ -454,11 +410,17 @@ func (s *Service) UseTemplate(userID, orgID, templateID, plan string, input UseT
 		CreditsCost:       catalog.CreditsCost,
 		PlanRequired:      catalog.PlanRequired,
 		PrefilledJob:      jobInput,
+		InputSlots:        contractSummary.InputSlots,
+		TargetOutputs:     contractSummary.TargetOutputs,
+		ResolvedStrategy:  contractSummary.StrategyPolicy,
 		TemplateContext: map[string]any{
-			"name":        catalog.Name,
-			"platforms":   platforms,
-			"moods":       decodeStringSlice(catalog.MoodsJSON),
-			"export_spec": exportSpec,
+			"name":              catalog.Name,
+			"platforms":         platforms,
+			"moods":             decodeStringSlice(catalog.MoodsJSON),
+			"export_spec":       exportSpec,
+			"input_slots":       contractSummary.InputSlots,
+			"target_outputs":    contractSummary.TargetOutputs,
+			"resolved_strategy": contractSummary.StrategyPolicy,
 		},
 	}, nil
 }
@@ -552,518 +514,4 @@ func (s *Service) recordUsageEvent(templateID, versionID, userID, orgID, eventTy
 		JobID:             jobID,
 		PayloadJSON:       mustEncodeJSON(payload),
 	})
-}
-
-func (s *Service) platformCatalogDetail(userID, orgID, templateID, plan string) (*TemplateCatalogDetail, error) {
-	if s.platform == nil {
-		return nil, gorm.ErrRecordNotFound
-	}
-	result, err := s.platform.InternalTemplateCatalogDetail("menu:" + templateID)
-	if err != nil || result == nil {
-		if err != nil {
-			return nil, err
-		}
-		return nil, gorm.ErrRecordNotFound
-	}
-	detail := mapPlatformCatalogDetail(result, plan, s.resolveTemplateScope(orgID, plan))
-	favorite, favoriteErr := s.repo.FindFavorite(templateID, userID, orgID)
-	if favoriteErr != nil && !errors.Is(favoriteErr, gorm.ErrRecordNotFound) {
-		return nil, favoriteErr
-	}
-	detail.IsFavorite = favorite != nil
-	return detail, nil
-}
-
-func (s *Service) usePlatformTemplate(userID, orgID, templateID, plan string, input UseTemplateInput, detail *TemplateCatalogDetail) (*UseTemplateResult, error) {
-	if detail.Locked {
-		return nil, fmt.Errorf("template requires %s scope", requiredTemplateScope("", detail.PlanRequired))
-	}
-	if !containsFold(detail.Platforms, input.TargetPlatform) {
-		return nil, fmt.Errorf("template does not support target platform %s", input.TargetPlatform)
-	}
-	exportSpec := resolveTemplateExportSpec(detail.Platforms, detail.ExportSpecs, input.TargetPlatform)
-	language := defaultString(input.Language, "en")
-	profile := detail.ExecutionProfile
-	profile = enrichTemplateDetailPromptProfile(detail, language)
-	jobInput := studio.CreateGenerationJobInput{
-		Mode:              "single",
-		Provider:          profile.Provider,
-		Prompt:            "",
-		RequestedVariants: 1,
-		Params: map[string]any{
-			"target_platform":  input.TargetPlatform,
-			"language":         language,
-			"custom_copy":      input.CustomCopy,
-			"upload_image_url": input.UploadImageURL,
-		},
-		Metadata: map[string]any{
-			"template_catalog_id": detail.TemplateID,
-			"template_version_id": detail.CurrentVersionID,
-			"cuisine":             detail.Cuisine,
-			"dish_type":           detail.DishType,
-			"creative_source": map[string]any{
-				"source_type":         "template",
-				"source_id":           detail.TemplateID,
-				"title":               detail.Name,
-				"plan_required":       detail.PlanRequired,
-				"credits_cost":        detail.CreditsCost,
-				"target_platform":     input.TargetPlatform,
-				"template_id":         detail.TemplateID,
-				"template_version_id": detail.CurrentVersionID,
-			},
-			"execution_profile": map[string]any{
-				"provider":                 profile.Provider,
-				"model":                    profile.Model,
-				"style_prompt":             profile.StylePrompt,
-				"negative_prompt_template": profile.NegativePromptTemplate,
-				"parameter_profile":        profile.ParameterProfile,
-				"variables":                profile.Variables,
-			},
-		},
-	}
-	if err := s.recordUsageEvent(templateID, detail.CurrentVersionID, userID, orgID, "use", "prepared", "", "", map[string]any{
-		"target_platform": input.TargetPlatform,
-		"language":        language,
-		"managed_source":  "platform_projection",
-	}); err != nil {
-		return nil, err
-	}
-	return &UseTemplateResult{
-		TemplateID:        detail.TemplateID,
-		TemplateVersionID: detail.CurrentVersionID,
-		TargetRoute:       "/api/v1/menu/studio/jobs",
-		TargetMethod:      "POST",
-		CreditsCost:       detail.CreditsCost,
-		PlanRequired:      detail.PlanRequired,
-		PrefilledJob:      jobInput,
-		TemplateContext: map[string]any{
-			"name":        detail.Name,
-			"platforms":   detail.Platforms,
-			"moods":       detail.Moods,
-			"export_spec": exportSpec,
-		},
-	}, nil
-}
-
-func (s *Service) copyPlatformTemplate(userID, orgID, templateID string, input CopyTemplateInput, detail *TemplateCatalogDetail) (*CopiedTemplateResult, error) {
-	item := &models.StylePreset{
-		OrganizationID:   orgID,
-		CreatedByUserID:  userID,
-		SourceType:       "template_catalog",
-		SourceCatalogID:  detail.TemplateID,
-		SourceVersionID:  detail.CurrentVersionID,
-		Name:             firstNonEmpty(strings.TrimSpace(input.Name), detail.Name+" Copy"),
-		Description:      detail.Description,
-		Visibility:       firstNonEmpty(input.Visibility, "private"),
-		Status:           "active",
-		Version:          1,
-		PreviewAssetID:   detail.CoverAssetID,
-		DimensionsJSON:   mustEncodeJSON(buildStyleDimensions(detail.Platforms)),
-		TagsJSON:         mustEncodeJSON(detail.Tags),
-		ExecutionProfile: mustEncodeJSON(detail.ExecutionProfile),
-		Metadata:         mustEncodeJSON(map[string]any{"template_catalog_id": detail.TemplateID, "template_version_id": detail.CurrentVersionID, "managed_source": "platform_projection"}),
-	}
-	if err := s.studioRepo.CreateStylePreset(item); err != nil {
-		return nil, err
-	}
-	if err := s.recordUsageEvent(templateID, detail.CurrentVersionID, userID, orgID, "copy", "recorded", item.ID, "", map[string]any{
-		"visibility":     item.Visibility,
-		"managed_source": "platform_projection",
-	}); err != nil {
-		return nil, err
-	}
-	return &CopiedTemplateResult{
-		StyleID:         item.ID,
-		Name:            item.Name,
-		Visibility:      item.Visibility,
-		SourceCatalogID: detail.TemplateID,
-		SourceVersionID: detail.CurrentVersionID,
-	}, nil
-}
-
-func matchesCatalogFilters(item TemplateCatalogSummary, input ListCatalogInput) bool {
-	if input.Cuisine != "" && !strings.EqualFold(item.Cuisine, input.Cuisine) {
-		return false
-	}
-	if input.DishType != "" && !strings.EqualFold(item.DishType, input.DishType) {
-		return false
-	}
-	if input.Platform != "" && !containsFold(item.Platforms, input.Platform) {
-		return false
-	}
-	if input.Mood != "" && !containsFold(item.Moods, input.Mood) {
-		return false
-	}
-	query := strings.TrimSpace(strings.ToLower(input.Query))
-	if query == "" {
-		return true
-	}
-	return strings.Contains(strings.ToLower(item.Name), query) ||
-		strings.Contains(strings.ToLower(item.Description), query) ||
-		strings.Contains(strings.ToLower(item.TemplateID), query)
-}
-
-func containsFold(items []string, target string) bool {
-	for _, item := range items {
-		if strings.EqualFold(item, target) {
-			return true
-		}
-	}
-	return false
-}
-
-func finalizeTemplatePromptProfile(profile studio.StyleExecutionProfile) studio.StyleExecutionProfile {
-	profile.SystemPrompt = strings.TrimSpace(profile.SystemPrompt)
-	profile.StylePrompt = strings.TrimSpace(profile.StylePrompt)
-	profile.UserPrompt = strings.TrimSpace(profile.UserPrompt)
-	profile.PromptTemplate = strings.TrimSpace(profile.PromptTemplate)
-	if profile.SystemPrompt == "" && profile.PromptTemplate != "" {
-		profile.SystemPrompt = profile.PromptTemplate
-	}
-	profile.PromptTemplate = composeTemplatePromptParts(profile.SystemPrompt, profile.StylePrompt, profile.UserPrompt)
-	return profile
-}
-
-func enrichCatalogVersionPromptProfile(profile studio.StyleExecutionProfile, catalog *models.TemplateCatalog, version *models.TemplateCatalogVersion, language string) studio.StyleExecutionProfile {
-	prompts := decodeMapString(version.PromptTemplatesJSON)
-	profile.SystemPrompt = defaultString(prompts[language], firstNonEmpty(profile.SystemPrompt, profile.PromptTemplate))
-	if profile.StylePrompt == "" && profile.PromptTemplate != "" && profile.PromptTemplate != profile.SystemPrompt {
-		profile.StylePrompt = profile.PromptTemplate
-	}
-	if profile.SystemPrompt == "" && profile.StylePrompt == "" {
-		profile.StylePrompt = buildTemplateFallbackStylePrompt(
-			catalog.Name,
-			catalog.Description,
-			catalog.Cuisine,
-			catalog.DishType,
-			decodeStringSlice(catalog.PlatformsJSON),
-			decodeStringSlice(catalog.MoodsJSON),
-			decodeStringSlice(catalog.TagsJSON),
-			decodeMapAny(version.DesignSpecJSON),
-			decodeMapAny(version.MetadataJSON),
-		)
-	}
-	return finalizeTemplatePromptProfile(profile)
-}
-
-func enrichTemplateDetailPromptProfile(detail *TemplateCatalogDetail, language string) studio.StyleExecutionProfile {
-	profile := detail.ExecutionProfile
-	profile.SystemPrompt = defaultString(detail.PromptTemplates[language], firstNonEmpty(profile.SystemPrompt, profile.PromptTemplate))
-	if profile.StylePrompt == "" && profile.PromptTemplate != "" && profile.PromptTemplate != profile.SystemPrompt {
-		profile.StylePrompt = profile.PromptTemplate
-	}
-	if profile.SystemPrompt == "" && profile.StylePrompt == "" {
-		profile.StylePrompt = buildTemplateFallbackStylePrompt(
-			detail.Name,
-			detail.Description,
-			detail.Cuisine,
-			detail.DishType,
-			detail.Platforms,
-			detail.Moods,
-			detail.Tags,
-			detail.DesignSpec,
-			detail.Metadata,
-		)
-	}
-	return finalizeTemplatePromptProfile(profile)
-}
-
-func buildTemplateFallbackStylePrompt(name, description, cuisine, dishType string, platforms, moods, tags []string, designSpec, metadata map[string]any) string {
-	parts := make([]string, 0, 10)
-	appendLabeled := func(label, value string) {
-		trimmed := strings.TrimSpace(value)
-		if trimmed == "" {
-			return
-		}
-		parts = append(parts, label+": "+trimmed)
-	}
-	appendList := func(label string, values []string) {
-		filtered := make([]string, 0, len(values))
-		for _, item := range values {
-			if trimmed := strings.TrimSpace(item); trimmed != "" {
-				filtered = append(filtered, trimmed)
-			}
-		}
-		if len(filtered) == 0 {
-			return
-		}
-		parts = append(parts, label+": "+strings.Join(filtered, ", "))
-	}
-	appendLabeled("Template", name)
-	appendLabeled("Description", description)
-	appendLabeled("Cuisine", cuisine)
-	appendLabeled("Dish Type", dishType)
-	appendList("Platforms", platforms)
-	appendList("Moods", moods)
-	appendList("Tags", tags)
-	appendLabeled("Layout", firstNonEmpty(stringMapValue(designSpec, "layout"), stringMapValue(metadata, "layout"), stringMapValue(metadata, "cover_layout")))
-	appendLabeled("Lighting", firstNonEmpty(stringMapValue(designSpec, "lighting"), stringMapValue(metadata, "lighting")))
-	appendList("Props", firstNonEmptyStringSlice(
-		decodeAnyStringSlice(designSpec["props"]),
-		decodeAnyStringSlice(metadata["props"]),
-	))
-	return strings.Join(parts, "\n")
-}
-
-func firstNonEmptyStringSlice(values ...[]string) []string {
-	for _, items := range values {
-		if len(items) > 0 {
-			return items
-		}
-	}
-	return nil
-}
-
-func composeTemplatePromptParts(parts ...string) string {
-	out := make([]string, 0, len(parts))
-	seen := map[string]struct{}{}
-	for _, part := range parts {
-		trimmed := strings.TrimSpace(part)
-		if trimmed == "" {
-			continue
-		}
-		if _, ok := seen[trimmed]; ok {
-			continue
-		}
-		seen[trimmed] = struct{}{}
-		out = append(out, trimmed)
-	}
-	return strings.Join(out, "\n\n")
-}
-
-func resolveTemplateExportSpec(platforms []string, exportSpecs map[string]any, targetPlatform string) map[string]any {
-	if spec, ok := exportSpecs[targetPlatform].(map[string]any); ok && len(spec) > 0 {
-		return spec
-	}
-	if !containsFold(platforms, targetPlatform) {
-		return nil
-	}
-	if option, ok := templatePlatforms[targetPlatform]; ok {
-		return map[string]any{
-			"id":     option.ID,
-			"label":  option.Label,
-			"width":  option.Width,
-			"height": option.Height,
-			"ratio":  option.Ratio,
-			"format": option.Format,
-		}
-	}
-	return map[string]any{"platform": targetPlatform}
-}
-
-func decodePlatformExamples(versionID string, value any) []models.TemplateCatalogExample {
-	rawExamples, ok := value.([]any)
-	if !ok {
-		return nil
-	}
-	items := make([]models.TemplateCatalogExample, 0, len(rawExamples))
-	for idx, rawExample := range rawExamples {
-		example, ok := rawExample.(map[string]any)
-		if !ok {
-			continue
-		}
-		items = append(items, models.TemplateCatalogExample{
-			ID:                firstNonEmpty(stringMapValue(example, "id"), fmt.Sprintf("%s-example-%d", versionID, idx+1)),
-			TemplateVersionID: versionID,
-			ExampleType:       defaultString(stringMapValue(example, "exampleType"), "preview"),
-			Title:             stringMapValue(example, "title"),
-			Description:       stringMapValue(example, "description"),
-			SourceRef:         stringMapValue(example, "sourceRef"),
-			StorageKey:        stringMapValue(example, "storageKey"),
-			AssetID:           stringMapValue(example, "assetId"),
-			PreviewURL:        firstNonEmpty(stringMapValue(example, "preview_url"), stringMapValue(example, "previewAssetUrl")),
-			InputAssetURL:     stringMapValue(example, "input_asset_url"),
-			OutputAssetURL:    stringMapValue(example, "output_asset_url"),
-			MetadataJSON:      mustEncodeJSON(mapAnyValue(example, "metadata")),
-			SortOrder:         idx + 1,
-		})
-	}
-	return items
-}
-
-func decodeExecutionProfileFromAny(value any) studio.StyleExecutionProfile {
-	switch typed := value.(type) {
-	case map[string]any:
-		return decodeExecutionProfile(mustEncodeJSON(typed))
-	case string:
-		return decodeExecutionProfile(typed)
-	default:
-		return studio.StyleExecutionProfile{}
-	}
-}
-
-func numberValue(value any) int {
-	switch typed := value.(type) {
-	case float64:
-		return int(typed)
-	case float32:
-		return int(typed)
-	case int:
-		return typed
-	case int64:
-		return int(typed)
-	default:
-		return 0
-	}
-}
-
-func mapCatalogSummary(item *models.TemplateCatalog, isFavorite bool, plan string, currentScope string) TemplateCatalogSummary {
-	return TemplateCatalogSummary{
-		TemplateID:     item.ID,
-		Slug:           item.Slug,
-		Name:           item.Name,
-		Description:    item.Description,
-		Cuisine:        item.Cuisine,
-		DishType:       item.DishType,
-		Platforms:      decodeStringSlice(item.PlatformsJSON),
-		Moods:          decodeStringSlice(item.MoodsJSON),
-		Tags:           decodeStringSlice(item.TagsJSON),
-		PlanRequired:   item.PlanRequired,
-		CreditsCost:    item.CreditsCost,
-		Locked:         !hasTemplateScopeAccess(currentScope, requiredTemplateScope("", item.PlanRequired)),
-		IsFavorite:     isFavorite,
-		CoverAssetID:   item.CoverAssetID,
-		RecommendScore: item.RecommendScore,
-	}
-}
-
-func planRank(plan string) int {
-	switch plan {
-	case "growth":
-		return 3
-	case "pro":
-		return 2
-	default:
-		return 1
-	}
-}
-
-func requiredTemplateScope(scope, planRequired string) string {
-	normalizedScope := strings.TrimSpace(scope)
-	if normalizedScope != "" {
-		switch normalizedScope {
-		case "public":
-			return "free_templates"
-		case "official":
-			return "official_templates"
-		case "all", "all_templates":
-			return "all_templates"
-		}
-	}
-	switch strings.TrimSpace(planRequired) {
-	case "pro":
-		return "official_templates"
-	case "growth", "max":
-		return "all_templates"
-	default:
-		return "free_templates"
-	}
-}
-
-func templateScopeRank(scope string) int {
-	switch strings.TrimSpace(scope) {
-	case "all_templates":
-		return 3
-	case "official_templates":
-		return 2
-	default:
-		return 1
-	}
-}
-
-func hasTemplateScopeAccess(currentScope, requiredScope string) bool {
-	return templateScopeRank(currentScope) >= templateScopeRank(requiredScope)
-}
-
-func planTemplateScope(plan string) string {
-	switch plan {
-	case "pro":
-		return "official_templates"
-	case "growth", "max":
-		return "all_templates"
-	default:
-		return "free_templates"
-	}
-}
-
-func (s *Service) resolveTemplateScope(orgID, plan string) string {
-	if s.platform != nil && orgID != "" {
-		result, err := s.platform.ResolveCapability("menu", "organization", orgID, "template_scope")
-		if err == nil && result != nil && strings.TrimSpace(result.GrantValue) != "" {
-			return result.GrantValue
-		}
-	}
-	return planTemplateScope(plan)
-}
-
-func buildStyleDimensions(platforms []string) []map[string]string {
-	out := make([]map[string]string, 0, len(platforms))
-	for _, platformID := range platforms {
-		out = append(out, map[string]string{
-			"type":  "platform",
-			"key":   platformID,
-			"label": strings.ReplaceAll(platformID, "_", " "),
-		})
-	}
-	return out
-}
-
-func decodeStringSlice(raw string) []string {
-	var items []string
-	_ = json.Unmarshal([]byte(raw), &items)
-	return items
-}
-
-func decodeMapString(raw string) map[string]string {
-	var items map[string]string
-	_ = json.Unmarshal([]byte(raw), &items)
-	if items == nil {
-		return map[string]string{}
-	}
-	return items
-}
-
-func decodeMapStringSlice(raw string) map[string][]string {
-	var items map[string][]string
-	_ = json.Unmarshal([]byte(raw), &items)
-	if items == nil {
-		return map[string][]string{}
-	}
-	return items
-}
-
-func decodeMapAny(raw string) map[string]any {
-	var items map[string]any
-	_ = json.Unmarshal([]byte(raw), &items)
-	if items == nil {
-		return map[string]any{}
-	}
-	return items
-}
-
-func decodeExecutionProfile(raw string) studio.StyleExecutionProfile {
-	var item studio.StyleExecutionProfile
-	_ = json.Unmarshal([]byte(raw), &item)
-	return item
-}
-
-func mustEncodeJSON(value any) string {
-	payload, _ := json.Marshal(value)
-	return string(payload)
-}
-
-func defaultString(value, fallback string) string {
-	if strings.TrimSpace(value) == "" {
-		return fallback
-	}
-	return strings.TrimSpace(value)
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
 }
