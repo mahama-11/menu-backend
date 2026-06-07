@@ -34,48 +34,48 @@ type TemplateMetaResult struct {
 }
 
 type TemplateExampleSeed struct {
-	ExampleType   string         `json:"example_type"`
-	Title         string         `json:"title"`
-	Description   string         `json:"description"`
-	SourceRef     string         `json:"source_ref"`
-	StorageKey    string         `json:"storage_key"`
-	AssetID       string         `json:"asset_id"`
-	PreviewURL    string         `json:"preview_url"`
-	InputAssetURL string         `json:"input_asset_url"`
-	OutputAssetURL string        `json:"output_asset_url"`
-	Metadata      map[string]any `json:"metadata"`
-	SortOrder     int            `json:"sort_order"`
+	ExampleType    string         `json:"example_type"`
+	Title          string         `json:"title"`
+	Description    string         `json:"description"`
+	SourceRef      string         `json:"source_ref"`
+	StorageKey     string         `json:"storage_key"`
+	AssetID        string         `json:"asset_id"`
+	PreviewURL     string         `json:"preview_url"`
+	InputAssetURL  string         `json:"input_asset_url"`
+	OutputAssetURL string         `json:"output_asset_url"`
+	Metadata       map[string]any `json:"metadata"`
+	SortOrder      int            `json:"sort_order"`
 }
 
 type TemplateSeed struct {
-	ID               string                 `json:"id"`
-	Slug             string                 `json:"slug"`
-	Name             string                 `json:"name"`
-	Description      string                 `json:"description"`
-	Cuisine          string                 `json:"cuisine"`
-	DishType         string                 `json:"dish_type"`
-	Plan             string                 `json:"plan"`
-	CreditsCost      int64                  `json:"credits_cost"`
-	Platforms        []string               `json:"platforms"`
-	Moods            []string               `json:"moods"`
-	Tags             []string               `json:"tags"`
-	Layout           string                 `json:"layout"`
-	Lighting         string                 `json:"lighting"`
-	Props            []string               `json:"props"`
-	PromptTemplates  map[string]string      `json:"prompt_templates"`
-	CopyTemplates    map[string]any         `json:"copy_templates"`
-	Hashtags         map[string][]string    `json:"hashtags"`
-	ExportSpecs      map[string]any         `json:"export_specs"`
-	InputSchema      map[string]any         `json:"input_schema"`
-	ExecutionProfile map[string]any         `json:"execution_profile"`
-	Examples         []TemplateExampleSeed  `json:"examples"`
-	Metadata         map[string]any         `json:"metadata"`
+	ID               string                `json:"id"`
+	Slug             string                `json:"slug"`
+	Name             string                `json:"name"`
+	Description      string                `json:"description"`
+	Cuisine          string                `json:"cuisine"`
+	DishType         string                `json:"dish_type"`
+	Plan             string                `json:"plan"`
+	CreditsCost      int64                 `json:"credits_cost"`
+	Platforms        []string              `json:"platforms"`
+	Moods            []string              `json:"moods"`
+	Tags             []string              `json:"tags"`
+	Layout           string                `json:"layout"`
+	Lighting         string                `json:"lighting"`
+	Props            []string              `json:"props"`
+	PromptTemplates  map[string]string     `json:"prompt_templates"`
+	CopyTemplates    map[string]any        `json:"copy_templates"`
+	Hashtags         map[string][]string   `json:"hashtags"`
+	ExportSpecs      map[string]any        `json:"export_specs"`
+	InputSchema      map[string]any        `json:"input_schema"`
+	ExecutionProfile map[string]any        `json:"execution_profile"`
+	Examples         []TemplateExampleSeed `json:"examples"`
+	Metadata         map[string]any        `json:"metadata"`
 }
 
 type TemplateSeedLibrary struct {
-	Version string             `json:"version"`
-	Meta    TemplateMetaResult `json:"meta"`
-	Templates []TemplateSeed   `json:"templates"`
+	Version   string             `json:"version"`
+	Meta      TemplateMetaResult `json:"meta"`
+	Templates []TemplateSeed     `json:"templates"`
 }
 
 //go:embed template_library.seed.json
@@ -149,10 +149,10 @@ func (s TemplateSeed) versionModel() *models.TemplateCatalogVersion {
 	copyTemplates := s.CopyTemplates
 	if len(copyTemplates) == 0 {
 		copyTemplates = map[string]any{
-		"en": map[string]string{"headline": s.Name, "body": "Turn this dish into a campaign-ready menu creative."},
-		"zh": map[string]string{"headline": s.Name, "body": "将这道菜快速生成可直接用于投放与社媒传播的营销图。"},
-		"th": map[string]string{"headline": s.Name, "body": "เปลี่ยนเมนูนี้ให้เป็นภาพโปรโมตพร้อมใช้งานทันที"},
-	}
+			"en": map[string]string{"headline": s.Name, "body": "Turn this dish into a campaign-ready menu creative."},
+			"zh": map[string]string{"headline": s.Name, "body": "将这道菜快速生成可直接用于投放与社媒传播的营销图。"},
+			"th": map[string]string{"headline": s.Name, "body": "เปลี่ยนเมนูนี้ให้เป็นภาพโปรโมตพร้อมใช้งานทันที"},
+		}
 	}
 	executionProfile := studio.StyleExecutionProfile{
 		Provider:       "default",
@@ -177,11 +177,7 @@ func (s TemplateSeed) versionModel() *models.TemplateCatalogVersion {
 	}
 	inputSchema := s.InputSchema
 	if len(inputSchema) == 0 {
-		inputSchema = map[string]any{
-			"upload_image_url": true,
-			"target_platforms": s.Platforms,
-			"languages":        []string{"th", "zh", "en"},
-		}
+		inputSchema = defaultTemplateInputSchema(s)
 	}
 	hashtags := s.Hashtags
 	if len(hashtags) == 0 {
@@ -203,11 +199,11 @@ func (s TemplateSeed) versionModel() *models.TemplateCatalogVersion {
 			"props":    s.Props,
 			"moods":    s.Moods,
 		}),
-		ExportSpecsJSON: mustEncodeJSON(exportSpecs),
-		InputSchemaJSON: mustEncodeJSON(inputSchema),
+		ExportSpecsJSON:      mustEncodeJSON(exportSpecs),
+		InputSchemaJSON:      mustEncodeJSON(inputSchema),
 		ExecutionProfileJSON: mustEncodeJSON(executionProfile),
 		MetadataJSON: mustEncodeJSON(mergeSeedMetadata(s.Metadata, map[string]any{
-			"seeded":      true,
+			"seeded":       true,
 			"cover_layout": s.Layout,
 		})),
 	}
@@ -253,6 +249,68 @@ func examplesFromSeeds(versionID string, examples []TemplateExampleSeed) []model
 		})
 	}
 	return items
+}
+
+func defaultTemplateInputSchema(s TemplateSeed) map[string]any {
+	inputMode := "image_to_image"
+	generationStrategy := "image_to_image"
+	provider := "default"
+	slots := []TemplateInputSlot{
+		{Role: "dish_photo", Label: "Dish photo", Required: true, Accept: "image/*", Description: "Primary dish or restaurant hero image", MaxCount: 1},
+	}
+	businessGoal := "Create a campaign-ready restaurant menu creative from merchant-provided material."
+	if s.ID == "TPL-MENU-001" {
+		inputMode = "multi_image"
+		generationStrategy = "multi_image"
+		provider = "comfyui_bridge"
+		businessGoal = "Generate a printable and QR-ready menu creative from dish, brand, menu, and style references."
+		slots = []TemplateInputSlot{
+			{Role: "dish_photo", Label: "Dish photo", Required: true, Accept: "image/*", Description: "Hero dish or set-meal photo", MaxCount: 1},
+			{Role: "brand_logo", Label: "Brand logo", Required: true, Accept: "image/*", Description: "Restaurant logo or brand mark", MaxCount: 1},
+			{Role: "menu_reference", Label: "Menu reference", Required: true, Accept: "image/*", Description: "Existing menu, QR menu, or price-list reference", MaxCount: 1},
+			{Role: "style_reference", Label: "Style reference", Required: true, Accept: "image/*", Description: "Visual style, layout, or atmosphere reference", MaxCount: 1},
+		}
+	}
+	return map[string]any{
+		"business_goal":    businessGoal,
+		"upload_image_url": true,
+		"target_platforms": s.Platforms,
+		"languages":        []string{"th", "zh", "en"},
+		"input_slots":      slots,
+		"target_outputs":   defaultTemplateTargetOutputs(s.Platforms),
+		"strategy_policy": map[string]any{
+			"input_mode":          inputMode,
+			"generation_strategy": generationStrategy,
+			"provider":            provider,
+			"min_source_assets":   len(slots),
+			"max_source_assets":   len(slots),
+			"required_roles":      templateSlotRoles(slots),
+		},
+	}
+}
+
+func defaultTemplateTargetOutputs(platforms []string) []TemplateTargetOutput {
+	outputs := make([]TemplateTargetOutput, 0, len(platforms))
+	for _, platformID := range platforms {
+		output := TemplateTargetOutput{"platform": platformID}
+		if spec, ok := templatePlatforms[platformID]; ok {
+			output["label"] = spec.Label
+			output["width"] = spec.Width
+			output["height"] = spec.Height
+			output["ratio"] = spec.Ratio
+			output["format"] = spec.Format
+		}
+		outputs = append(outputs, output)
+	}
+	return outputs
+}
+
+func templateSlotRoles(slots []TemplateInputSlot) []string {
+	roles := make([]string, 0, len(slots))
+	for _, slot := range slots {
+		roles = append(roles, slot.Role)
+	}
+	return roles
 }
 
 func firstMood(moods []string) string {

@@ -53,6 +53,7 @@ func (h *Handler) ListCatalog(c *gin.Context) {
 		Mood:     c.Query("mood"),
 		Query:    c.Query("query"),
 		Plan:     c.Query("plan"),
+		Source:   c.Query("source"),
 	})
 	if err != nil {
 		_ = c.Error(err)
@@ -74,7 +75,15 @@ func (h *Handler) ListCatalog(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse
 // @Router /api/v1/menu/template-center/catalog/{templateID} [get]
 func (h *Handler) Detail(c *gin.Context) {
-	item, err := h.service.GetCatalogDetail(c.GetString("userID"), c.GetString("orgID"), c.Param("templateID"), c.Query("plan"))
+	var (
+		item *TemplateCatalogDetail
+		err  error
+	)
+	if strings.EqualFold(strings.TrimSpace(c.Query("source")), "local") {
+		item, err = h.service.GetLocalCatalogDetail(c.GetString("userID"), c.GetString("orgID"), c.Param("templateID"), c.Query("plan"))
+	} else {
+		item, err = h.service.GetCatalogDetail(c.GetString("userID"), c.GetString("orgID"), c.Param("templateID"), c.Query("plan"))
+	}
 	if err != nil {
 		writeTemplateError(c, err, "MENU_TEMPLATE_DETAIL_FAILED", "Failed to load template detail")
 		return
