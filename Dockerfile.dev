@@ -12,4 +12,4 @@ ENV MENU_PORT=8196
 ENV MENU_CONFIG_FILE=config.dev
 EXPOSE 8096 8196
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3   CMD wget --no-verbose --tries=1 --spider http://localhost:${MENU_PORT}/healthz || exit 1
-CMD ["./menu-service", "-config", "config.dev"]
+CMD ["sh", "-c", "exec ./menu-service -config ${MENU_CONFIG_FILE:-config.dev}"]
