@@ -2,6 +2,8 @@ package storage
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -216,6 +218,9 @@ func preAutoMigrate(db *gorm.DB, tablePrefix string) error {
 	if auditTable == "" {
 		auditTable = "audit_logs"
 	}
+	if err := migrateAuditLogIDColumn(db, auditTable); err != nil {
+		return err
+	}
 	if migrator.HasTable(auditTable) && !migrator.HasColumn(auditTable, "target_type") {
 		if err := db.Exec(fmt.Sprintf(`ALTER TABLE "%s" ADD COLUMN target_type text`, auditTable)).Error; err != nil {
 			return err
@@ -229,6 +234,61 @@ func preAutoMigrate(db *gorm.DB, tablePrefix string) error {
 		logger.With("table", auditTable, "column", "target_type").Info("database.pre_auto_migrate.backfilled_non_null_column")
 	}
 	return nil
+}
+
+func migrateAuditLogIDColumn(db *gorm.DB, auditTable string) error {
+	if db.Dialector == nil || db.Dialector.Name() != "postgres" || !db.Migrator().HasTable(auditTable) {
+		return nil
+	}
+
+	var dataType, udtName string
+	err := db.Raw(`
+		SELECT data_type, udt_name
+		FROM information_schema.columns
+		WHERE table_schema = current_schema()
+		  AND table_name = ?
+		  AND column_name = 'id'
+	`, auditTable).Row().Scan(&dataType, &udtName)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("inspect audit log id column: %w", err)
+	}
+
+	alterSQL, ok := auditLogIDColumnMigrationSQL(db.Dialector.Name(), auditTable, dataType, udtName)
+	if !ok {
+		return nil
+	}
+	quotedTable := quoteIdentifier(auditTable)
+	if err := db.Exec(fmt.Sprintf(`ALTER TABLE %s ALTER COLUMN "id" DROP DEFAULT`, quotedTable)).Error; err != nil {
+		return fmt.Errorf("drop legacy audit log id default: %w", err)
+	}
+	if err := db.Exec(alterSQL).Error; err != nil {
+		return fmt.Errorf("convert legacy audit log id column to varchar: %w", err)
+	}
+	logger.With("table", auditTable, "column", "id", "from_data_type", dataType, "from_udt_name", udtName).Info("database.pre_auto_migrate.converted_audit_log_id")
+	return nil
+}
+
+func auditLogIDColumnMigrationSQL(dialect, tableName, dataType, udtName string) (string, bool) {
+	if dialect != "postgres" {
+		return "", false
+	}
+	normalizedDataType := strings.ToLower(strings.TrimSpace(dataType))
+	normalizedUDTName := strings.ToLower(strings.TrimSpace(udtName))
+	if normalizedDataType == "character varying" || normalizedDataType == "text" || normalizedUDTName == "varchar" || normalizedUDTName == "text" {
+		return "", false
+	}
+	if normalizedDataType != "bigint" && normalizedDataType != "integer" && normalizedUDTName != "int8" && normalizedUDTName != "int4" {
+		return "", false
+	}
+	quotedTable := quoteIdentifier(tableName)
+	return fmt.Sprintf(`ALTER TABLE %s ALTER COLUMN "id" TYPE varchar(64) USING "id"::text`, quotedTable), true
+}
+
+func quoteIdentifier(identifier string) string {
+	return `"` + strings.ReplaceAll(identifier, `"`, `""`) + `"`
 }
 
 type menuNamingStrategy struct {

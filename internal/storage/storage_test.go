@@ -3,10 +3,10 @@ package storage
 import (
 	"testing"
 
-	"menu-service/internal/config"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
+	"menu-service/internal/config"
 )
 
 func TestValidateAutoMigratePolicy(t *testing.T) {
@@ -74,6 +74,24 @@ func TestValidateAutoMigratePolicy(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 		})
+	}
+}
+
+func TestAuditLogIDColumnMigrationSQL(t *testing.T) {
+	sql, ok := auditLogIDColumnMigrationSQL("postgres", "menu_audit_logs", "bigint", "int8")
+	if !ok {
+		t.Fatalf("expected postgres bigint audit log id to require migration")
+	}
+	want := `ALTER TABLE "menu_audit_logs" ALTER COLUMN "id" TYPE varchar(64) USING "id"::text`
+	if sql != want {
+		t.Fatalf("unexpected migration SQL:\n got: %s\nwant: %s", sql, want)
+	}
+
+	if _, ok := auditLogIDColumnMigrationSQL("postgres", "menu_audit_logs", "character varying", "varchar"); ok {
+		t.Fatalf("varchar audit log id should not require migration")
+	}
+	if _, ok := auditLogIDColumnMigrationSQL("sqlite", "menu_audit_logs", "integer", "integer"); ok {
+		t.Fatalf("sqlite should not run postgres audit id migration")
 	}
 }
 
