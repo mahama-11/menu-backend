@@ -318,7 +318,7 @@ func TestTemplateCenterUsesPlatformProjectionForBusinessFlow(t *testing.T) {
 				"billing_subject_type":  "organization",
 				"billing_subject_id":    "org-1",
 				"capability_code":       "template_scope",
-				"grant_value":           "official_templates",
+				"grant_value":           "free_templates",
 				"source":                "test",
 				"matched_policy_id":     "policy-test",
 				"matched_grant_scope":   "organization",

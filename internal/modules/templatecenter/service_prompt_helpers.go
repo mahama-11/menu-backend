@@ -210,6 +210,18 @@ func planRank(plan string) int {
 }
 
 func requiredTemplateScope(scope, planRequired string) string {
+	// Access should be driven by the business plan attached to the template.
+	// Platform projection `scope=official` describes the catalog origin, not a
+	// blanket requirement for the paid `official_templates` capability.
+	switch strings.TrimSpace(planRequired) {
+	case "pro":
+		return "official_templates"
+	case "growth", "max":
+		return "all_templates"
+	case "basic", "starter", "free":
+		return "free_templates"
+	}
+
 	normalizedScope := strings.TrimSpace(scope)
 	if normalizedScope != "" {
 		switch normalizedScope {
@@ -221,14 +233,7 @@ func requiredTemplateScope(scope, planRequired string) string {
 			return "all_templates"
 		}
 	}
-	switch strings.TrimSpace(planRequired) {
-	case "pro":
-		return "official_templates"
-	case "growth", "max":
-		return "all_templates"
-	default:
-		return "free_templates"
-	}
+	return "free_templates"
 }
 
 func templateScopeRank(scope string) int {
@@ -237,8 +242,10 @@ func templateScopeRank(scope string) int {
 		return 3
 	case "official_templates":
 		return 2
-	default:
+	case "free_templates":
 		return 1
+	default:
+		return 0
 	}
 }
 
@@ -263,6 +270,9 @@ func (s *Service) resolveTemplateScope(orgID, plan string) string {
 		if err == nil && result != nil && strings.TrimSpace(result.GrantValue) != "" {
 			return result.GrantValue
 		}
+	}
+	if strings.TrimSpace(orgID) == "" {
+		return ""
 	}
 	return planTemplateScope(plan)
 }
