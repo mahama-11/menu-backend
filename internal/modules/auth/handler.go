@@ -43,7 +43,7 @@ func (h *Handler) Register(c *gin.Context) {
 		response.JSONBindError(c, err, "invalid register request")
 		return
 	}
-	result, err := h.service.Register(req)
+	result, err := h.service.WithContext(c.Request.Context()).Register(req)
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -86,7 +86,7 @@ func (h *Handler) Login(c *gin.Context) {
 		response.JSONBindError(c, err, "invalid login request")
 		return
 	}
-	result, err := h.service.Login(req)
+	result, err := h.service.WithContext(c.Request.Context()).Login(req)
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -121,7 +121,7 @@ func (h *Handler) Login(c *gin.Context) {
 func (h *Handler) Session(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/auth-handler", "menu.auth.session")
 	defer span.End()
-	result, err := h.service.Session(c.GetString("userID"), c.GetString("orgID"))
+	result, err := h.service.WithContext(c.Request.Context()).Session(c.GetString("userID"), c.GetString("orgID"))
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)

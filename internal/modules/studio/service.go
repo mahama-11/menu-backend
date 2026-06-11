@@ -1,6 +1,7 @@
 package studio
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -46,6 +47,17 @@ func NewService(repo *repository.StudioRepository, templateRepo *repository.Temp
 		cfg:          cfg,
 		security:     securityCfg,
 	}
+}
+
+func (s *Service) WithContext(ctx context.Context) *Service {
+	if s == nil || ctx == nil {
+		return s
+	}
+	clone := *s
+	if s.platform != nil {
+		clone.platform = s.platform.WithContext(ctx)
+	}
+	return &clone
 }
 
 func (s *Service) RegisterAsset(userID, orgID string, input RegisterAssetInput) (*AssetSummary, error) {

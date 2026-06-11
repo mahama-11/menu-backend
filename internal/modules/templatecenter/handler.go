@@ -28,7 +28,7 @@ func NewHandler(service *Service, auditService *audit.Service) *Handler {
 // @Success 200 {object} response.SuccessResponse
 // @Router /api/v1/menu/template-center/meta [get]
 func (h *Handler) Meta(c *gin.Context) {
-	response.JSONSuccess(c, h.service.Meta())
+	response.JSONSuccess(c, h.service.WithContext(c.Request.Context()).Meta())
 }
 
 // ListCatalog godoc
@@ -46,7 +46,7 @@ func (h *Handler) Meta(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse
 // @Router /api/v1/menu/template-center/catalog [get]
 func (h *Handler) ListCatalog(c *gin.Context) {
-	items, err := h.service.ListCatalogs(c.GetString("userID"), c.GetString("orgID"), ListCatalogInput{
+	items, err := h.service.WithContext(c.Request.Context()).ListCatalogs(c.GetString("userID"), c.GetString("orgID"), ListCatalogInput{
 		Cuisine:  c.Query("cuisine"),
 		DishType: c.Query("dish_type"),
 		Platform: c.Query("platform"),
@@ -80,9 +80,9 @@ func (h *Handler) Detail(c *gin.Context) {
 		err  error
 	)
 	if strings.EqualFold(strings.TrimSpace(c.Query("source")), "local") {
-		item, err = h.service.GetLocalCatalogDetail(c.GetString("userID"), c.GetString("orgID"), c.Param("templateID"), c.Query("plan"))
+		item, err = h.service.WithContext(c.Request.Context()).GetLocalCatalogDetail(c.GetString("userID"), c.GetString("orgID"), c.Param("templateID"), c.Query("plan"))
 	} else {
-		item, err = h.service.GetCatalogDetail(c.GetString("userID"), c.GetString("orgID"), c.Param("templateID"), c.Query("plan"))
+		item, err = h.service.WithContext(c.Request.Context()).GetCatalogDetail(c.GetString("userID"), c.GetString("orgID"), c.Param("templateID"), c.Query("plan"))
 	}
 	if err != nil {
 		writeTemplateError(c, err, "MENU_TEMPLATE_DETAIL_FAILED", "Failed to load template detail")
@@ -104,7 +104,7 @@ func (h *Handler) Detail(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse
 // @Router /api/v1/menu/template-center/favorites [get]
 func (h *Handler) ListFavorites(c *gin.Context) {
-	items, err := h.service.ListFavorites(c.GetString("userID"), c.GetString("orgID"), c.Query("plan"))
+	items, err := h.service.WithContext(c.Request.Context()).ListFavorites(c.GetString("userID"), c.GetString("orgID"), c.Query("plan"))
 	if err != nil {
 		_ = c.Error(err)
 		response.JSONErrorSemantic(c, response.CodeInternalError, "Failed to load favorite templates", "MENU_TEMPLATE_FAVORITE_LIST_FAILED", "Refresh and try again.")
@@ -127,7 +127,7 @@ func (h *Handler) ListFavorites(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse
 // @Router /api/v1/menu/template-center/favorites/{templateID} [post]
 func (h *Handler) SetFavorite(c *gin.Context) {
-	if err := h.service.SetFavorite(c.GetString("userID"), c.GetString("orgID"), c.Param("templateID")); err != nil {
+	if err := h.service.WithContext(c.Request.Context()).SetFavorite(c.GetString("userID"), c.GetString("orgID"), c.Param("templateID")); err != nil {
 		writeTemplateError(c, err, "MENU_TEMPLATE_FAVORITE_SET_FAILED", "Failed to favorite template")
 		return
 	}
@@ -147,7 +147,7 @@ func (h *Handler) SetFavorite(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse
 // @Router /api/v1/menu/template-center/favorites/{templateID} [delete]
 func (h *Handler) RemoveFavorite(c *gin.Context) {
-	if err := h.service.RemoveFavorite(c.GetString("userID"), c.GetString("orgID"), c.Param("templateID")); err != nil {
+	if err := h.service.WithContext(c.Request.Context()).RemoveFavorite(c.GetString("userID"), c.GetString("orgID"), c.Param("templateID")); err != nil {
 		_ = c.Error(err)
 		response.JSONErrorSemantic(c, response.CodeInternalError, "Failed to remove favorite", "MENU_TEMPLATE_FAVORITE_REMOVE_FAILED", "Refresh and try again.")
 		return
@@ -179,7 +179,7 @@ func (h *Handler) Use(c *gin.Context) {
 		response.JSONBindError(c, err, "invalid use template request")
 		return
 	}
-	item, err := h.service.UseTemplate(c.GetString("userID"), c.GetString("orgID"), c.Param("templateID"), c.Query("plan"), req)
+	item, err := h.service.WithContext(c.Request.Context()).UseTemplate(c.GetString("userID"), c.GetString("orgID"), c.Param("templateID"), c.Query("plan"), req)
 	if err != nil {
 		writeTemplateError(c, err, "MENU_TEMPLATE_USE_FAILED", "Failed to prepare template usage")
 		return
@@ -209,7 +209,7 @@ func (h *Handler) CopyToMyTemplates(c *gin.Context) {
 		response.JSONBindError(c, err, "invalid copy template request")
 		return
 	}
-	item, err := h.service.CopyToMyTemplates(c.GetString("userID"), c.GetString("orgID"), c.Param("templateID"), req)
+	item, err := h.service.WithContext(c.Request.Context()).CopyToMyTemplates(c.GetString("userID"), c.GetString("orgID"), c.Param("templateID"), req)
 	if err != nil {
 		writeTemplateError(c, err, "MENU_TEMPLATE_COPY_FAILED", "Failed to copy template")
 		return

@@ -38,7 +38,7 @@ func NewHandler(service *Service, auditService *audit.Service) *Handler {
 func (h *Handler) ListAssets(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/studio-handler", "menu.studio.assets.list")
 	defer span.End()
-	items, err := h.service.ListAssets(c.GetString("userID"), c.GetString("orgID"), c.Query("asset_type"), c.Query("status"))
+	items, err := h.service.WithContext(c.Request.Context()).ListAssets(c.GetString("userID"), c.GetString("orgID"), c.Query("asset_type"), c.Query("status"))
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -67,7 +67,7 @@ func (h *Handler) ListAssets(c *gin.Context) {
 func (h *Handler) AssetLibrary(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/studio-handler", "menu.studio.library.assets")
 	defer span.End()
-	result, err := h.service.AssetLibrary(
+	result, err := h.service.WithContext(c.Request.Context()).AssetLibrary(
 		c.GetString("userID"),
 		c.GetString("orgID"),
 		c.Query("asset_type"),
@@ -109,7 +109,7 @@ func (h *Handler) RegisterAsset(c *gin.Context) {
 		response.JSONBindError(c, err, "invalid register studio asset request")
 		return
 	}
-	item, err := h.service.RegisterAsset(c.GetString("userID"), c.GetString("orgID"), req)
+	item, err := h.service.WithContext(c.Request.Context()).RegisterAsset(c.GetString("userID"), c.GetString("orgID"), req)
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -135,12 +135,12 @@ func (h *Handler) GetAssetContent(c *gin.Context) {
 	assetID := c.Param("assetID")
 	if orgID == "" {
 		expiresAt, parseErr := strconv.ParseInt(c.Query("expires"), 10, 64)
-		if parseErr != nil || !h.service.ValidateAssetAccessSignature(assetID, expiresAt, c.Query("sig")) {
+		if parseErr != nil || !h.service.WithContext(c.Request.Context()).ValidateAssetAccessSignature(assetID, expiresAt, c.Query("sig")) {
 			response.JSONErrorSemantic(c, response.CodeForbidden, "Forbidden", "STUDIO_ASSET_CONTENT_FORBIDDEN", "Refresh and try again.")
 			return
 		}
 	}
-	item, body, headers, err := h.service.GetAssetContent(orgID, assetID)
+	item, body, headers, err := h.service.WithContext(c.Request.Context()).GetAssetContent(orgID, assetID)
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -174,7 +174,7 @@ func (h *Handler) GetAssetContent(c *gin.Context) {
 func (h *Handler) ListStylePresets(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/studio-handler", "menu.studio.styles.list")
 	defer span.End()
-	items, err := h.service.ListStylePresets(c.GetString("orgID"), c.Query("visibility"), c.Query("status"))
+	items, err := h.service.WithContext(c.Request.Context()).ListStylePresets(c.GetString("orgID"), c.Query("visibility"), c.Query("status"))
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -207,7 +207,7 @@ func (h *Handler) CreateStylePreset(c *gin.Context) {
 		response.JSONBindError(c, err, "invalid create style preset request")
 		return
 	}
-	item, err := h.service.CreateStylePreset(c.GetString("userID"), c.GetString("orgID"), req)
+	item, err := h.service.WithContext(c.Request.Context()).CreateStylePreset(c.GetString("userID"), c.GetString("orgID"), req)
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -241,7 +241,7 @@ func (h *Handler) CreateStylePreset(c *gin.Context) {
 func (h *Handler) GetStylePreset(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/studio-handler", "menu.studio.style.get")
 	defer span.End()
-	item, err := h.service.GetStylePreset(c.GetString("orgID"), c.Param("styleID"))
+	item, err := h.service.WithContext(c.Request.Context()).GetStylePreset(c.GetString("orgID"), c.Param("styleID"))
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -275,7 +275,7 @@ func (h *Handler) ForkStylePreset(c *gin.Context) {
 		response.JSONBindError(c, err, "invalid fork style preset request")
 		return
 	}
-	item, err := h.service.ForkStylePreset(c.GetString("userID"), c.GetString("orgID"), c.Param("styleID"), req)
+	item, err := h.service.WithContext(c.Request.Context()).ForkStylePreset(c.GetString("userID"), c.GetString("orgID"), c.Param("styleID"), req)
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -309,7 +309,7 @@ func (h *Handler) ForkStylePreset(c *gin.Context) {
 func (h *Handler) ListGenerationJobs(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/studio-handler", "menu.studio.jobs.list")
 	defer span.End()
-	items, err := h.service.ListGenerationJobs(c.GetString("userID"), c.GetString("orgID"), c.Query("status"))
+	items, err := h.service.WithContext(c.Request.Context()).ListGenerationJobs(c.GetString("userID"), c.GetString("orgID"), c.Query("status"))
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -336,7 +336,7 @@ func (h *Handler) ListGenerationJobs(c *gin.Context) {
 func (h *Handler) JobHistory(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/studio-handler", "menu.studio.history.jobs")
 	defer span.End()
-	result, err := h.service.JobHistory(c.GetString("userID"), c.GetString("orgID"), c.Query("status"), queryInt(c, "limit", 50), queryInt(c, "offset", 0))
+	result, err := h.service.WithContext(c.Request.Context()).JobHistory(c.GetString("userID"), c.GetString("orgID"), c.Query("status"), queryInt(c, "limit", 50), queryInt(c, "offset", 0))
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -371,7 +371,7 @@ func (h *Handler) CreateGenerationJob(c *gin.Context) {
 		response.JSONBindError(c, err, "invalid create generation job request")
 		return
 	}
-	item, err := h.service.CreateGenerationJob(c.GetString("userID"), c.GetString("orgID"), req)
+	item, err := h.service.WithContext(c.Request.Context()).CreateGenerationJob(c.GetString("userID"), c.GetString("orgID"), req)
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -405,7 +405,7 @@ func (h *Handler) CreateGenerationJob(c *gin.Context) {
 func (h *Handler) GetGenerationJob(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/studio-handler", "menu.studio.job.get")
 	defer span.End()
-	item, err := h.service.GetGenerationJob(c.GetString("orgID"), c.Param("jobID"))
+	item, err := h.service.WithContext(c.Request.Context()).GetGenerationJob(c.GetString("orgID"), c.Param("jobID"))
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -491,7 +491,7 @@ func (h *Handler) RecordJobResults(c *gin.Context) {
 		response.JSONBindError(c, err, "invalid record generation job results request")
 		return
 	}
-	item, err := h.service.RecordJobResults(c.GetString("userID"), c.GetString("orgID"), c.Param("jobID"), req)
+	item, err := h.service.WithContext(c.Request.Context()).RecordJobResults(c.GetString("userID"), c.GetString("orgID"), c.Param("jobID"), req)
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -534,7 +534,7 @@ func (h *Handler) SelectVariant(c *gin.Context) {
 		response.JSONBindError(c, err, "invalid select generation variant request")
 		return
 	}
-	item, err := h.service.SelectVariant(c.GetString("userID"), c.GetString("orgID"), c.Param("jobID"), req.VariantID)
+	item, err := h.service.WithContext(c.Request.Context()).SelectVariant(c.GetString("userID"), c.GetString("orgID"), c.Param("jobID"), req.VariantID)
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -568,7 +568,7 @@ func (h *Handler) SelectVariant(c *gin.Context) {
 func (h *Handler) CancelGenerationJob(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/studio-handler", "menu.studio.job.cancel")
 	defer span.End()
-	item, err := h.service.CancelGenerationJob(c.GetString("orgID"), c.Param("jobID"))
+	item, err := h.service.WithContext(c.Request.Context()).CancelGenerationJob(c.GetString("orgID"), c.Param("jobID"))
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -609,7 +609,7 @@ func (h *Handler) InternalUpdateJobRuntime(c *gin.Context) {
 		response.JSONBindError(c, err, "invalid internal studio runtime update request")
 		return
 	}
-	item, err := h.service.UpdateJobRuntime(c.Param("jobID"), req)
+	item, err := h.service.WithContext(c.Request.Context()).UpdateJobRuntime(c.Param("jobID"), req)
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -642,7 +642,7 @@ func (h *Handler) InternalRecordJobResults(c *gin.Context) {
 		response.JSONBindError(c, err, "invalid internal studio result callback request")
 		return
 	}
-	item, err := h.service.RecordJobResultsInternal(c.Param("jobID"), req)
+	item, err := h.service.WithContext(c.Request.Context()).RecordJobResultsInternal(c.Param("jobID"), req)
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)

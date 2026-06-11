@@ -1,6 +1,7 @@
 package templatecenter
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -114,6 +115,17 @@ type CopiedTemplateResult struct {
 
 func NewService(repo *repository.TemplateCenterRepository, studioRepo *repository.StudioRepository, auditService *audit.Service, platformClient *platform.Client) *Service {
 	return &Service{repo: repo, studioRepo: studioRepo, audit: auditService, platform: platformClient}
+}
+
+func (s *Service) WithContext(ctx context.Context) *Service {
+	if s == nil || ctx == nil {
+		return s
+	}
+	clone := *s
+	if s.platform != nil {
+		clone.platform = s.platform.WithContext(ctx)
+	}
+	return &clone
 }
 
 func (s *Service) Bootstrap() error {
