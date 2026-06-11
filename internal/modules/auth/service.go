@@ -244,7 +244,7 @@ func (s *Service) ensureSignupPackageActivated(user platform.PlatformUserProfile
 		BillingSubjectType: "organization",
 		BillingSubjectID:   user.OrgID,
 		ActivationReason:   "signup_trial",
-		ReferenceID:        fmt.Sprintf("menu:signup_package:%s:%s", packageCode, user.OrgID),
+		ReferenceID:        fmt.Sprintf("menu:signup:%s", user.OrgID),
 	})
 	status := "succeeded"
 	errorMessage := ""
