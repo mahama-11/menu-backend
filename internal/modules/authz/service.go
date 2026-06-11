@@ -1,6 +1,7 @@
 package authz
 
 import (
+	"context"
 	"fmt"
 	"sort"
 
@@ -25,6 +26,17 @@ type AccessContext struct {
 
 func NewService(repo *repository.AuthzRepository, platformClient *platform.Client) *Service {
 	return &Service{repo: repo, platform: platformClient}
+}
+
+func (s *Service) WithContext(ctx context.Context) *Service {
+	if s == nil || ctx == nil {
+		return s
+	}
+	clone := *s
+	if s.platform != nil {
+		clone.platform = s.platform.WithContext(ctx)
+	}
+	return &clone
 }
 
 func (s *Service) Bootstrap() error {

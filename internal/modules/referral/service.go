@@ -1,6 +1,7 @@
 package referral
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -90,22 +91,22 @@ func defaultReferralPrograms(rewardAssetCode string) []platform.CreateReferralPr
 }
 
 type Overview struct {
-	Programs             []platform.ReferralProgram    `json:"programs"`
-	Codes                []ReferralCodeSummary         `json:"codes"`
-	Conversions          []platform.ReferralConversion `json:"conversions"`
-	Commissions          []platform.CommissionLedger   `json:"commissions"`
-	TotalConversions     int                           `json:"total_conversions"`
-	TrackedConversions   int                           `json:"tracked_conversions"`
-	EarnedConversions    int                           `json:"earned_conversions"`
-	ReversedConversions  int                           `json:"reversed_conversions"`
-	TotalCommission      int64                         `json:"total_commission"`
-	EarnedCommission     int64                         `json:"earned_commission"`
-	PendingCommission    int64                         `json:"pending_commission"`
-	ReversedCommission   int64                         `json:"reversed_commission"`
-	RedeemableCommission int64                         `json:"redeemable_commission"`
-	RedeemedCommission   int64                         `json:"redeemed_commission"`
-	RedeemTargetAssetCode string                       `json:"redeem_target_asset_code"`
-	InviteBaseURL         string                       `json:"invite_base_url,omitempty"`
+	Programs              []platform.ReferralProgram    `json:"programs"`
+	Codes                 []ReferralCodeSummary         `json:"codes"`
+	Conversions           []platform.ReferralConversion `json:"conversions"`
+	Commissions           []platform.CommissionLedger   `json:"commissions"`
+	TotalConversions      int                           `json:"total_conversions"`
+	TrackedConversions    int                           `json:"tracked_conversions"`
+	EarnedConversions     int                           `json:"earned_conversions"`
+	ReversedConversions   int                           `json:"reversed_conversions"`
+	TotalCommission       int64                         `json:"total_commission"`
+	EarnedCommission      int64                         `json:"earned_commission"`
+	PendingCommission     int64                         `json:"pending_commission"`
+	ReversedCommission    int64                         `json:"reversed_commission"`
+	RedeemableCommission  int64                         `json:"redeemable_commission"`
+	RedeemedCommission    int64                         `json:"redeemed_commission"`
+	RedeemTargetAssetCode string                        `json:"redeem_target_asset_code"`
+	InviteBaseURL         string                        `json:"invite_base_url,omitempty"`
 }
 
 type CreateCodeInput struct {
@@ -127,6 +128,17 @@ func NewService(platformClient *platform.Client, appCfg config.AppConfig) *Servi
 		rewardAssetCode:    appCfg.RewardAssetCode,
 		allowanceAssetCode: appCfg.AllowanceAssetCode,
 	}
+}
+
+func (s *Service) WithContext(ctx context.Context) *Service {
+	if s == nil || ctx == nil {
+		return s
+	}
+	clone := *s
+	if s.platform != nil {
+		clone.platform = s.platform.WithContext(ctx)
+	}
+	return &clone
 }
 
 func (s *Service) Bootstrap() error {

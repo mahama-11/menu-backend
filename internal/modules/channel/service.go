@@ -1,6 +1,7 @@
 package channel
 
 import (
+	"context"
 	"errors"
 	"sort"
 
@@ -119,6 +120,17 @@ type Overview struct {
 
 func NewService(platformClient *platform.Client) *Service {
 	return &Service{platform: platformClient}
+}
+
+func (s *Service) WithContext(ctx context.Context) *Service {
+	if s == nil || ctx == nil {
+		return s
+	}
+	clone := *s
+	if s.platform != nil {
+		clone.platform = s.platform.WithContext(ctx)
+	}
+	return &clone
 }
 
 func (s *Service) CurrentBinding(orgID string) ([]BindingView, error) {

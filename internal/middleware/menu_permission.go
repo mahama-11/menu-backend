@@ -9,7 +9,7 @@ import (
 
 func RequireMenuPermission(service *authz.Service, permission string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ctx, err := service.EnsurePermission(c.GetString("userID"), c.GetString("orgID"), permission)
+		ctx, err := service.WithContext(c.Request.Context()).EnsurePermission(c.GetString("userID"), c.GetString("orgID"), permission)
 		if err != nil {
 			_ = c.Error(err)
 			response.JSONErrorSemantic(c, response.CodeForbidden, "Permission denied", "MENU_PERMISSION_DENIED", "Your current role does not have access to this operation.")

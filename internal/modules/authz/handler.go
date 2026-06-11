@@ -20,7 +20,7 @@ func (h *Handler) Me(c *gin.Context) {
 	defer span.End()
 	userID := c.GetString("userID")
 	orgID := c.GetString("orgID")
-	ctx, err := h.service.Resolve(userID, orgID)
+	ctx, err := h.service.WithContext(c.Request.Context()).Resolve(userID, orgID)
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)

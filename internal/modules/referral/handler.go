@@ -35,7 +35,7 @@ func NewHandler(service *Service, auditService *audit.Service) *Handler {
 func (h *Handler) ListPrograms(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/referral-handler", "menu.referral.programs.list")
 	defer span.End()
-	items, err := h.service.ListPrograms(c.DefaultQuery("status", "active"))
+	items, err := h.service.WithContext(c.Request.Context()).ListPrograms(c.DefaultQuery("status", "active"))
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -60,7 +60,7 @@ func (h *Handler) ListPrograms(c *gin.Context) {
 func (h *Handler) Overview(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/referral-handler", "menu.referral.overview.get")
 	defer span.End()
-	item, err := h.service.Overview(c.GetString("orgID"), c.Query("conversion_status"), c.Query("commission_status"))
+	item, err := h.service.WithContext(c.Request.Context()).Overview(c.GetString("orgID"), c.Query("conversion_status"), c.Query("commission_status"))
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -84,7 +84,7 @@ func (h *Handler) Overview(c *gin.Context) {
 func (h *Handler) ResolveCode(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/referral-handler", "menu.referral.code.resolve")
 	defer span.End()
-	item, err := h.service.ResolveCode(c.Param("code"))
+	item, err := h.service.WithContext(c.Request.Context()).ResolveCode(c.Param("code"))
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -109,7 +109,7 @@ func (h *Handler) ResolveCode(c *gin.Context) {
 func (h *Handler) ListCodes(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/referral-handler", "menu.referral.codes.list")
 	defer span.End()
-	items, err := h.service.ListCodes(c.GetString("orgID"), c.Query("program_code"), c.Query("status"))
+	items, err := h.service.WithContext(c.Request.Context()).ListCodes(c.GetString("orgID"), c.Query("program_code"), c.Query("status"))
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -142,7 +142,7 @@ func (h *Handler) EnsureCode(c *gin.Context) {
 		response.JSONBindError(c, err, "invalid ensure referral code request")
 		return
 	}
-	item, err := h.service.EnsureCode(c.GetString("orgID"), req)
+	item, err := h.service.WithContext(c.Request.Context()).EnsureCode(c.GetString("orgID"), req)
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -175,7 +175,7 @@ func (h *Handler) CreateCode(c *gin.Context) {
 		response.JSONBindError(c, err, "invalid create referral code request")
 		return
 	}
-	item, err := h.service.CreateCode(c.GetString("orgID"), req)
+	item, err := h.service.WithContext(c.Request.Context()).CreateCode(c.GetString("orgID"), req)
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -210,7 +210,7 @@ func (h *Handler) CreateCode(c *gin.Context) {
 func (h *Handler) ListConversions(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/referral-handler", "menu.referral.conversions.list")
 	defer span.End()
-	items, err := h.service.ListConversions(c.GetString("orgID"), c.Query("status"))
+	items, err := h.service.WithContext(c.Request.Context()).ListConversions(c.GetString("orgID"), c.Query("status"))
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -271,7 +271,7 @@ func writeReferralPlatformError(c *gin.Context, err error, fallbackMessage, fall
 func (h *Handler) ListCommissions(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/referral-handler", "menu.referral.commissions.list")
 	defer span.End()
-	items, err := h.service.ListCommissions(c.GetString("orgID"), c.Query("status"))
+	items, err := h.service.WithContext(c.Request.Context()).ListCommissions(c.GetString("orgID"), c.Query("status"))
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -304,7 +304,7 @@ func (h *Handler) RedeemCommissions(c *gin.Context) {
 		response.JSONBindError(c, err, "invalid redeem referral commissions request")
 		return
 	}
-	item, err := h.service.RedeemCommissions(c.GetString("orgID"), req)
+	item, err := h.service.WithContext(c.Request.Context()).RedeemCommissions(c.GetString("orgID"), req)
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)

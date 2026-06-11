@@ -38,7 +38,7 @@ func (h *Handler) ListActivities(c *gin.Context) {
 	defer span.End()
 	limit := queryInt(c, "limit", 20)
 	offset := queryInt(c, "offset", 0)
-	result, err := h.service.Activities(c.GetString("userID"), c.GetString("orgID"), limit, offset)
+	result, err := h.service.WithContext(c.Request.Context()).Activities(c.GetString("userID"), c.GetString("orgID"), limit, offset)
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -61,7 +61,7 @@ func (h *Handler) ListActivities(c *gin.Context) {
 func (h *Handler) GetProfile(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/user-handler", "menu.user.profile.get")
 	defer span.End()
-	result, err := h.service.Profile(c.GetString("userID"), c.GetString("orgID"))
+	result, err := h.service.WithContext(c.Request.Context()).Profile(c.GetString("userID"), c.GetString("orgID"))
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -84,7 +84,7 @@ func (h *Handler) GetProfile(c *gin.Context) {
 func (h *Handler) GetCredits(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/user-handler", "menu.user.credits.get")
 	defer span.End()
-	result, err := h.service.Credits(c.GetString("userID"), c.GetString("orgID"))
+	result, err := h.service.WithContext(c.Request.Context()).Credits(c.GetString("userID"), c.GetString("orgID"))
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -97,7 +97,7 @@ func (h *Handler) GetCredits(c *gin.Context) {
 func (h *Handler) GetWalletSummary(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/user-handler", "menu.user.wallet_summary.get")
 	defer span.End()
-	result, err := h.service.WalletSummary(c.GetString("orgID"))
+	result, err := h.service.WithContext(c.Request.Context()).WalletSummary(c.GetString("orgID"))
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -110,7 +110,7 @@ func (h *Handler) GetWalletSummary(c *gin.Context) {
 func (h *Handler) GetQuotaSummary(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/user-handler", "menu.user.quota_summary.get")
 	defer span.End()
-	result, err := h.service.QuotaSummary(c.GetString("orgID"))
+	result, err := h.service.WithContext(c.Request.Context()).QuotaSummary(c.GetString("orgID"))
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -123,7 +123,7 @@ func (h *Handler) GetQuotaSummary(c *gin.Context) {
 func (h *Handler) GetWalletHistory(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/user-handler", "menu.user.wallet_history.get")
 	defer span.End()
-	result, err := h.service.WalletHistory(c.GetString("orgID"), queryInt(c, "limit", 100))
+	result, err := h.service.WithContext(c.Request.Context()).WalletHistory(c.GetString("orgID"), queryInt(c, "limit", 100))
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -136,7 +136,7 @@ func (h *Handler) GetWalletHistory(c *gin.Context) {
 func (h *Handler) GetAuditHistory(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/user-handler", "menu.user.audit_history.get")
 	defer span.End()
-	result, err := h.service.AuditHistory(
+	result, err := h.service.WithContext(c.Request.Context()).AuditHistory(
 		c.GetString("userID"),
 		c.GetString("orgID"),
 		c.Query("target_type"),
@@ -156,7 +156,7 @@ func (h *Handler) GetAuditHistory(c *gin.Context) {
 func (h *Handler) GetCommercialOfferings(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/user-handler", "menu.user.commercial_offerings.get")
 	defer span.End()
-	result, err := h.service.CommercialOfferings(c.GetString("orgID"))
+	result, err := h.service.WithContext(c.Request.Context()).CommercialOfferings(c.GetString("orgID"))
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -175,7 +175,7 @@ func (h *Handler) CreateCommercialOrder(c *gin.Context) {
 		response.JSONBindError(c, err, "invalid create commercial order request")
 		return
 	}
-	result, err := h.service.CreateCommercialOrder(c.GetString("userID"), c.GetString("orgID"), req)
+	result, err := h.service.WithContext(c.Request.Context()).CreateCommercialOrder(c.GetString("userID"), c.GetString("orgID"), req)
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -188,7 +188,7 @@ func (h *Handler) CreateCommercialOrder(c *gin.Context) {
 func (h *Handler) ListCommercialOrders(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/user-handler", "menu.user.commercial_order.list")
 	defer span.End()
-	result, err := h.service.ListCommercialOrders(c.GetString("orgID"), queryInt(c, "limit", 20), queryInt(c, "offset", 0))
+	result, err := h.service.WithContext(c.Request.Context()).ListCommercialOrders(c.GetString("orgID"), queryInt(c, "limit", 20), queryInt(c, "offset", 0))
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -201,7 +201,7 @@ func (h *Handler) ListCommercialOrders(c *gin.Context) {
 func (h *Handler) GetCommercialOrder(c *gin.Context) {
 	span := telemetry.StartGinSpan(c, "menu-service/user-handler", "menu.user.commercial_order.get")
 	defer span.End()
-	result, err := h.service.GetCommercialOrder(c.GetString("orgID"), c.Param("orderID"))
+	result, err := h.service.WithContext(c.Request.Context()).GetCommercialOrder(c.GetString("orgID"), c.Param("orderID"))
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -220,7 +220,7 @@ func (h *Handler) ConfirmCommercialOrderPayment(c *gin.Context) {
 		response.JSONBindError(c, err, "invalid confirm commercial payment request")
 		return
 	}
-	result, err := h.service.ConfirmCommercialOrderPayment(c.GetString("userID"), c.GetString("orgID"), c.Param("orderID"), req)
+	result, err := h.service.WithContext(c.Request.Context()).ConfirmCommercialOrderPayment(c.GetString("userID"), c.GetString("orgID"), c.Param("orderID"), req)
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -239,7 +239,7 @@ func (h *Handler) AssignCommercialPackage(c *gin.Context) {
 		response.JSONBindError(c, err, "invalid assign package request")
 		return
 	}
-	result, err := h.service.AssignCommercialPackage(c.GetString("userID"), c.GetString("orgID"), req)
+	result, err := h.service.WithContext(c.Request.Context()).AssignCommercialPackage(c.GetString("userID"), c.GetString("orgID"), req)
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -268,7 +268,7 @@ func (h *Handler) SimulateCommercialConsumption(c *gin.Context) {
 		response.JSONBindError(c, err, "invalid simulate consumption request")
 		return
 	}
-	result, err := h.service.SimulateCommercialConsumption(c.GetString("userID"), c.GetString("orgID"), req)
+	result, err := h.service.WithContext(c.Request.Context()).SimulateCommercialConsumption(c.GetString("userID"), c.GetString("orgID"), req)
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)
@@ -309,7 +309,7 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 		response.JSONBindError(c, err, "invalid update profile request")
 		return
 	}
-	result, err := h.service.UpdateProfile(c.GetString("userID"), c.GetString("orgID"), req)
+	result, err := h.service.WithContext(c.Request.Context()).UpdateProfile(c.GetString("userID"), c.GetString("orgID"), req)
 	if err != nil {
 		span.RecordError(err)
 		_ = c.Error(err)

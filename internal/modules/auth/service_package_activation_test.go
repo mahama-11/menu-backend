@@ -53,8 +53,11 @@ func TestRegisterActivatesConfiguredSignupPackage(t *testing.T) {
 	if got.ProductCode != "menu" || got.PackageCode != "menu.pkg.trial.signup" || got.BillingSubjectType != "organization" || got.BillingSubjectID != "org-1" {
 		t.Fatalf("unexpected activation request: %+v", got)
 	}
-	if got.ActivationReason != "signup_trial" || got.ReferenceID != "menu:signup_package:menu.pkg.trial.signup:org-1" {
+	if got.ActivationReason != "signup_trial" || got.ReferenceID != "menu:signup:org-1" {
 		t.Fatalf("activation idempotency/reason mismatch: %+v", got)
+	}
+	if len(got.ReferenceID) > 64 {
+		t.Fatalf("activation reference_id should fit platform storage limit, got len=%d", len(got.ReferenceID))
 	}
 }
 
@@ -98,7 +101,7 @@ func TestLoginActivatesConfiguredSignupPackageForRecovery(t *testing.T) {
 	if len(activationRequests) != 1 {
 		t.Fatalf("activation requests = %d, want 1", len(activationRequests))
 	}
-	if got := activationRequests[0]; got.ReferenceID != "menu:signup_package:menu.pkg.trial.signup:org-1" || got.BillingSubjectID != "org-1" {
+	if got := activationRequests[0]; got.ReferenceID != "menu:signup:org-1" || got.BillingSubjectID != "org-1" {
 		t.Fatalf("unexpected recovery activation request: %+v", got)
 	}
 }

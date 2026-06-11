@@ -15,7 +15,7 @@ func NewHandler(service *Service) *Handler {
 }
 
 func (h *Handler) CurrentBinding(c *gin.Context) {
-	items, err := h.service.CurrentBinding(c.GetString("orgID"))
+	items, err := h.service.WithContext(c.Request.Context()).CurrentBinding(c.GetString("orgID"))
 	if err != nil {
 		response.JSONError(c, response.CodeInternalError, "failed to load current channel binding")
 		return
@@ -24,7 +24,7 @@ func (h *Handler) CurrentBinding(c *gin.Context) {
 }
 
 func (h *Handler) Overview(c *gin.Context) {
-	item, err := h.service.Overview(c.GetString("orgID"))
+	item, err := h.service.WithContext(c.Request.Context()).Overview(c.GetString("orgID"))
 	if err != nil {
 		response.JSONError(c, response.CodeInternalError, "failed to load channel overview")
 		return
@@ -33,7 +33,7 @@ func (h *Handler) Overview(c *gin.Context) {
 }
 
 func (h *Handler) ListCommissions(c *gin.Context) {
-	items, err := h.service.ListCommissions(c.GetString("orgID"), c.Query("status"))
+	items, err := h.service.WithContext(c.Request.Context()).ListCommissions(c.GetString("orgID"), c.Query("status"))
 	if err != nil {
 		response.JSONError(c, response.CodeInternalError, "failed to load channel commissions")
 		return
@@ -42,7 +42,7 @@ func (h *Handler) ListCommissions(c *gin.Context) {
 }
 
 func (h *Handler) ListSettlements(c *gin.Context) {
-	items, err := h.service.ListSettlements(c.GetString("orgID"), c.Query("status"))
+	items, err := h.service.WithContext(c.Request.Context()).ListSettlements(c.GetString("orgID"), c.Query("status"))
 	if err != nil {
 		response.JSONError(c, response.CodeInternalError, "failed to load channel settlements")
 		return
@@ -51,7 +51,7 @@ func (h *Handler) ListSettlements(c *gin.Context) {
 }
 
 func (h *Handler) ListAdjustments(c *gin.Context) {
-	items, err := h.service.ListAdjustments(c.GetString("orgID"), c.Query("status"))
+	items, err := h.service.WithContext(c.Request.Context()).ListAdjustments(c.GetString("orgID"), c.Query("status"))
 	if err != nil {
 		response.JSONError(c, response.CodeInternalError, "failed to load channel adjustments")
 		return
@@ -65,7 +65,7 @@ func (h *Handler) CreateAdjustment(c *gin.Context) {
 		response.JSONBindError(c, err, "invalid channel adjustment request")
 		return
 	}
-	item, err := h.service.CreateAdjustment(c.GetString("orgID"), c.GetString("userID"), req)
+	item, err := h.service.WithContext(c.Request.Context()).CreateAdjustment(c.GetString("orgID"), c.GetString("userID"), req)
 	if err != nil {
 		response.JSONError(c, response.CodeInternalError, "failed to create channel adjustment")
 		return
@@ -79,7 +79,7 @@ func (h *Handler) Preview(c *gin.Context) {
 		response.JSONBindError(c, err, "invalid channel preview request")
 		return
 	}
-	item, err := h.service.Preview(c.GetString("orgID"), req)
+	item, err := h.service.WithContext(c.Request.Context()).Preview(c.GetString("orgID"), req)
 	if err != nil {
 		response.JSONError(c, response.CodeInternalError, "failed to preview channel policy resolution")
 		return

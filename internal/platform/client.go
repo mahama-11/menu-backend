@@ -2,6 +2,7 @@ package platform
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -16,6 +17,9 @@ import (
 	"time"
 
 	"menu-service/internal/config"
+
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type Client struct {
@@ -23,6 +27,7 @@ type Client struct {
 	secret      string
 	serviceName string
 	http        *http.Client
+	ctx         context.Context
 }
 
 func New(cfg config.PlatformConfig) *Client {
@@ -38,6 +43,15 @@ func (c *Client) BaseURL() string          { return c.baseURL }
 func (c *Client) InternalSecret() string   { return c.secret }
 func (c *Client) HTTPClient() *http.Client { return c.http }
 func (c *Client) ServiceName() string      { return c.serviceName }
+
+func (c *Client) WithContext(ctx context.Context) *Client {
+	if c == nil || ctx == nil {
+		return c
+	}
+	clone := *c
+	clone.ctx = ctx
+	return &clone
+}
 
 func (c *Client) InternalURL(path string) string {
 	return fmt.Sprintf("%s/internal/v1/%s", c.baseURL, strings.TrimLeft(path, "/"))
@@ -245,13 +259,15 @@ func (c *Client) UploadAsset(input UploadAssetInput) (*StoredAsset, error) {
 
 func (c *Client) DownloadAsset(storageKey string) (io.ReadCloser, http.Header, error) {
 	path := withQuery("/storage/assets/content", map[string]string{"storage_key": storageKey})
-	req, err := http.NewRequest(http.MethodGet, c.InternalURL(path), nil)
+	ctx := c.requestContext()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.InternalURL(path), nil)
 	if err != nil {
 		return nil, nil, err
 	}
-	for key, value := range c.buildHeaders(http.MethodGet, path, nil) {
+	for key, value := range c.buildHeaders(ctx, http.MethodGet, path, nil) {
 		req.Header.Set(key, value)
 	}
+	propagation.TraceContext{}.Inject(ctx, propagation.HeaderCarrier(req.Header))
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return nil, nil, err
@@ -458,16 +474,18 @@ func doRequest[T any](c *Client, method, path string, payload any) (*T, error) {
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest(method, c.InternalURL(path), bytes.NewReader(body))
+	ctx := c.requestContext()
+	req, err := http.NewRequestWithContext(ctx, method, c.InternalURL(path), bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
-	for key, value := range c.buildHeaders(method, path, body) {
+	for key, value := range c.buildHeaders(ctx, method, path, body) {
 		req.Header.Set(key, value)
 	}
 	if len(body) > 0 {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	propagation.TraceContext{}.Inject(ctx, propagation.HeaderCarrier(req.Header))
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return nil, err
@@ -502,7 +520,8 @@ func doPublicRequest[T any](c *Client, method, path string, payload any) (*T, er
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest(method, c.PublicURL(path), bytes.NewReader(body))
+	ctx := c.requestContext()
+	req, err := http.NewRequestWithContext(ctx, method, c.PublicURL(path), bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
@@ -510,6 +529,8 @@ func doPublicRequest[T any](c *Client, method, path string, payload any) (*T, er
 	if len(body) > 0 {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	setCorrelationHeaders(req.Header, ctx, c.serviceName)
+	propagation.TraceContext{}.Inject(ctx, propagation.HeaderCarrier(req.Header))
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return nil, err
@@ -534,18 +555,62 @@ func doPublicRequest[T any](c *Client, method, path string, payload any) (*T, er
 	return &out.Data, nil
 }
 
-func (c *Client) buildHeaders(method, path string, body []byte) map[string]string {
+func (c *Client) buildHeaders(ctx context.Context, method, path string, body []byte) map[string]string {
 	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 	signature := sign(c.secret, c.serviceName, method, path, timestamp, body)
-	return map[string]string{
+	headers := map[string]string{
 		"Accept":                    "application/json",
 		"X-Internal-Service":        c.serviceName,
 		"X-Internal-Timestamp":      timestamp,
 		"X-Internal-Signature":      signature,
 		"X-Internal-Service-Secret": c.secret,
-		"X-Request-ID":              buildRequestID(c.serviceName),
-		"X-Trace-ID":                buildRequestID("trace"),
 	}
+	requestID, traceID := correlationIDs(ctx, c.serviceName)
+	headers["X-Request-ID"] = requestID
+	headers["X-Trace-ID"] = traceID
+	return headers
+}
+
+func setCorrelationHeaders(header http.Header, ctx context.Context, serviceName string) {
+	requestID, traceID := correlationIDs(ctx, serviceName)
+	header.Set("X-Request-ID", requestID)
+	header.Set("X-Trace-ID", traceID)
+}
+
+func correlationIDs(ctx context.Context, serviceName string) (string, string) {
+	requestID := stringContextValue(ctx, "request_id")
+	if requestID == "" {
+		requestID = stringContextValue(ctx, "requestID")
+	}
+	if requestID == "" {
+		requestID = buildRequestID(serviceName)
+	}
+	traceID := stringContextValue(ctx, "trace_id")
+	if traceID == "" {
+		traceID = stringContextValue(ctx, "traceID")
+	}
+	if spanCtx := trace.SpanContextFromContext(ctx); spanCtx.IsValid() {
+		traceID = spanCtx.TraceID().String()
+	}
+	if traceID == "" {
+		traceID = buildRequestID("trace")
+	}
+	return requestID, traceID
+}
+
+func (c *Client) requestContext() context.Context {
+	if c != nil && c.ctx != nil {
+		return c.ctx
+	}
+	return context.Background()
+}
+
+func stringContextValue(ctx context.Context, key string) string {
+	if ctx == nil {
+		return ""
+	}
+	value, _ := ctx.Value(key).(string)
+	return value
 }
 
 func encodePayload(payload any) ([]byte, error) {

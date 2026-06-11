@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"fmt"
 	"menu-service/internal/config"
 	"menu-service/internal/models"
@@ -98,6 +99,20 @@ type AccessSummary struct {
 
 func NewService(platformClient *platform.Client, repo *repository.UserRepository, authzService *authz.Service, appCfg config.AppConfig) *Service {
 	return &Service{platform: platformClient, repo: repo, authz: authzService, appCfg: appCfg}
+}
+
+func (s *Service) WithContext(ctx context.Context) *Service {
+	if s == nil || ctx == nil {
+		return s
+	}
+	clone := *s
+	if s.platform != nil {
+		clone.platform = s.platform.WithContext(ctx)
+	}
+	if s.authz != nil {
+		clone.authz = s.authz.WithContext(ctx)
+	}
+	return &clone
 }
 
 func (s *Service) Register(input RegisterInput) (*AuthResult, error) {
@@ -229,7 +244,7 @@ func (s *Service) ensureSignupPackageActivated(user platform.PlatformUserProfile
 		BillingSubjectType: "organization",
 		BillingSubjectID:   user.OrgID,
 		ActivationReason:   "signup_trial",
-		ReferenceID:        fmt.Sprintf("menu:signup_package:%s:%s", packageCode, user.OrgID),
+		ReferenceID:        fmt.Sprintf("menu:signup:%s", user.OrgID),
 	})
 	status := "succeeded"
 	errorMessage := ""
