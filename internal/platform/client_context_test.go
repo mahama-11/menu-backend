@@ -68,7 +68,7 @@ func TestClientWithContextPropagatesCorrelationToPublicPlatformCalls(t *testing.
 
 	ctx, traceID := outboundTraceContext("req-menu-public")
 	client := New(config.PlatformConfig{BaseURL: server.URL, Timeout: DefaultTimeout(), ServiceName: "v-menu-backend-test", InternalServiceSecret: "secret"})
-	if _, err := client.WithContext(ctx).Register(AuthRegisterInput{FullName: "Owner", Email: "owner@example.test", Password: "secret123", Company: "Kitchen"}); err != nil {
+	if _, err := client.WithContext(ctx).Register(AuthRegisterInput{FullName: "Owner", Email: "owner@example.test", Password: "change-me", Company: "Kitchen"}); err != nil {
 		t.Fatalf("Register: %v", err)
 	}
 	assertCorrelationHeaders(t, seen, "req-menu-public", traceID.String(), "")
